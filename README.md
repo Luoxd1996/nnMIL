@@ -1,6 +1,6 @@
-# nnMIL: Multiple Instance Learning Framework
+# nnMIL: No-New Multiple Instance Learning
 
-A modular MIL (Multiple Instance Learning) framework following nnUNet design principles for medical imaging and histopathology analysis.
+A modular MIL (Multiple Instance Learning) framework following nnUNet design principles for computational pathology.
 
 ## Features
 
