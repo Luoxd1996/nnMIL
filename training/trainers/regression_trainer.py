@@ -259,7 +259,8 @@ class RegressionTrainer(BaseTrainer):
             verbose=True,
             metric=metric,
             save_dir=self.save_dir,
-            model_type=self.model_type
+            model_type=self.model_type,
+            logger=self.logger
         )
         
         # Setup mixed precision

@@ -3,11 +3,12 @@ Early stopping callbacks for different task types.
 """
 import os
 import torch
+import numpy as np
 
 
 class EarlyStopping:
     """Early stopping with metric from plan file for classification"""
-    def __init__(self, patience=7, verbose=False, delta=0, metric='bacc', save_dir=None, model_type=None):
+    def __init__(self, patience=7, verbose=False, delta=0, metric='bacc', save_dir=None, model_type=None, logger=None):
         """
         Args:
             patience: Early stopping patience
@@ -16,6 +17,7 @@ class EarlyStopping:
             metric: Primary metric from plan file ('auc', 'bacc', 'f1', 'kappa', etc.)
             save_dir: Directory to save best model
             model_type: Model type name for saving
+            logger: Optional logger for logging messages
         """
         self.patience = patience
         self.verbose = verbose
@@ -25,6 +27,7 @@ class EarlyStopping:
         self.delta = delta
         self.save_dir = save_dir
         self.model_type = model_type
+        self.logger = logger
         
         # Use metric from plan file (no hardcoding)
         metric_lower = metric.lower()
@@ -40,7 +43,11 @@ class EarlyStopping:
             # Default to BACC for classification
             self.primary_metric = "BACC"
         
-        print(f"EarlyStopping: Using {self.primary_metric} as primary metric (from plan: {metric})")
+        msg = f"EarlyStopping: Using {self.primary_metric} as primary metric (from plan: {metric})"
+        if self.logger:
+            self.logger.info(msg)
+        else:
+            print(msg)
 
     def __call__(self, val_loss, val_bacc, val_f1, val_auc, model, val_kappa=None):
         # Use metric from plan file
@@ -53,37 +60,69 @@ class EarlyStopping:
         else:
             # BACC or default
             score = val_bacc
+        
+        # Handle NaN/inf scores
+        if np.isnan(score) or np.isinf(score):
+            score = 0.0
             
         if self.best_score is None:
             self.best_score = score
             self.save_checkpoint(val_loss, val_bacc, val_f1, val_auc, model, val_kappa)
-        elif score < self.best_score + self.delta:
+            msg = f'EarlyStopping: Initial {self.primary_metric} = {score:.4f}'
+            if self.logger:
+                self.logger.info(msg)
+            else:
+                print(msg)
+        elif score <= self.best_score + self.delta:
+            # Score did not improve (or improved less than delta)
             self.counter += 1
-            if self.verbose:
-                print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
+            msg = f'EarlyStopping counter: {self.counter}/{self.patience} ({self.primary_metric}: {score:.4f} <= {self.best_score:.4f} + {self.delta:.4f})'
+            if self.logger:
+                self.logger.info(msg)
+            else:
+                print(msg)
             if self.counter >= self.patience:
                 self.early_stop = True
+                msg = f'Early stopping triggered! No improvement for {self.patience} epochs.'
+                if self.logger:
+                    self.logger.info(msg)
+                else:
+                    print(msg)
         else:
+            # Score improved
+            improvement = score - self.best_score
+            old_score = self.best_score
             self.best_score = score
             self.save_checkpoint(val_loss, val_bacc, val_f1, val_auc, model, val_kappa)
             self.counter = 0
+            msg = f'EarlyStopping: {self.primary_metric} improved from {old_score:.4f} to {self.best_score:.4f} (+{improvement:.4f}). Reset counter.'
+            if self.logger:
+                self.logger.info(msg)
+            else:
+                print(msg)
 
     def save_checkpoint(self, val_loss, val_bacc, val_f1, val_auc, model, val_kappa=None):
-        if self.verbose:
-            print(f'Validation {self.primary_metric} improved. Saving model...')
+        msg = f'Validation {self.primary_metric} improved. Saving model...'
+        if self.logger:
+            self.logger.info(msg)
+        else:
+            print(msg)
         self.best_model_state = model.state_dict().copy()
         
         # Save best model to file
         if self.save_dir and self.model_type:
             best_model_path = os.path.join(self.save_dir, f"best_{self.model_type}.pth")
             torch.save(model.state_dict(), best_model_path)
-            if self.verbose:
-                print(f'Saved best model to {best_model_path}')
+            msg = f'Saved best model to {best_model_path}'
+            if self.logger:
+                self.logger.info(msg)
+            else:
+                print(msg)
 
 
 class RegressionEarlyStopping:
     """Early stopping for regression tasks using metric from plan file"""
-    def __init__(self, patience=10, verbose=False, delta=0, metric='pearson', save_dir=None, model_type=None):
+    def __init__(self, patience=10, verbose=False, delta=0, metric='pearson', save_dir=None, model_type=None, logger=None):
         """
         Args:
             patience: Early stopping patience
@@ -92,6 +131,7 @@ class RegressionEarlyStopping:
             metric: Primary metric from plan file ('pearson', 'r2', 'mse', etc.)
             save_dir: Directory to save best model
             model_type: Model type name for saving
+            logger: Optional logger for logging messages
         """
         self.patience = patience
         self.verbose = verbose
@@ -101,6 +141,7 @@ class RegressionEarlyStopping:
         self.delta = delta
         self.save_dir = save_dir
         self.model_type = model_type
+        self.logger = logger
         
         # Use metric from plan file
         metric_lower = metric.lower()
@@ -121,7 +162,11 @@ class RegressionEarlyStopping:
         if not hasattr(self, 'higher_is_better'):
             self.higher_is_better = True
         
-        print(f"RegressionEarlyStopping: Using {self.primary_metric} as primary metric (from plan: {metric})")
+        msg = f"RegressionEarlyStopping: Using {self.primary_metric} as primary metric (from plan: {metric})"
+        if self.logger:
+            self.logger.info(msg)
+        else:
+            print(msg)
 
     def __call__(self, val_mse, val_pearson, val_r2, model):
         # Use metric from plan file
@@ -134,31 +179,61 @@ class RegressionEarlyStopping:
         else:
             score = val_pearson  # Default
         
+        # Handle NaN/inf scores
+        if np.isnan(score) or np.isinf(score):
+            score = 0.0 if self.higher_is_better else -1e6
+            
         if self.best_score is None:
             self.best_score = score
             self.save_checkpoint(val_mse, val_pearson, val_r2, model)
+            msg = f'RegressionEarlyStopping: Initial {self.primary_metric} = {score:.4f}'
+            if self.logger:
+                self.logger.info(msg)
+            elif self.verbose:
+                print(msg)
         elif score < self.best_score + self.delta:
             self.counter += 1
-            if self.verbose:
-                print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
+            msg = f'EarlyStopping counter: {self.counter}/{self.patience} ({self.primary_metric}: {score:.4f} < {self.best_score:.4f} + {self.delta:.4f})'
+            if self.logger:
+                self.logger.info(msg)
+            elif self.verbose:
+                print(msg)
             if self.counter >= self.patience:
                 self.early_stop = True
+                msg = f'Early stopping triggered! No improvement for {self.patience} epochs.'
+                if self.logger:
+                    self.logger.info(msg)
+                elif self.verbose:
+                    print(msg)
         else:
+            improvement = score - self.best_score
+            old_score = self.best_score
             self.best_score = score
             self.save_checkpoint(val_mse, val_pearson, val_r2, model)
             self.counter = 0
+            msg = f'RegressionEarlyStopping: {self.primary_metric} improved from {old_score:.4f} to {self.best_score:.4f} (+{improvement:.4f}). Reset counter.'
+            if self.logger:
+                self.logger.info(msg)
+            elif self.verbose:
+                print(msg)
 
     def save_checkpoint(self, val_mse, val_pearson, val_r2, model):
-        if self.verbose:
-            print(f'Validation Pearson correlation improved. Saving model...')
+        msg = f'Validation {self.primary_metric} improved. Saving model...'
+        if self.logger:
+            self.logger.info(msg)
+        elif self.verbose:
+            print(msg)
         self.best_model_state = model.state_dict().copy()
         
         # Save best model to file
         if self.save_dir and self.model_type:
             best_model_path = os.path.join(self.save_dir, f"best_{self.model_type}.pth")
             torch.save(model.state_dict(), best_model_path)
-            if self.verbose:
-                print(f'Saved best model to {best_model_path}')
+            msg = f'Saved best model to {best_model_path}'
+            if self.logger:
+                self.logger.info(msg)
+            elif self.verbose:
+                print(msg)
 
 
 class EarlyStoppingSurvival:
@@ -192,43 +267,72 @@ class EarlyStoppingSurvival:
             # Default to C-index for survival
             self.primary_metric = "C-index"
         
-        print(f"EarlyStopping: Using {self.primary_metric} as primary metric for survival analysis (from plan: {metric})")
+        msg = f"EarlyStopping: Using {self.primary_metric} as primary metric for survival analysis (from plan: {metric})"
+        if self.logger:
+            self.logger.info(msg)
+        else:
+            print(msg)
 
     def __call__(self, val_loss, val_c_index, model):
         score = val_c_index
+        
+        # Handle NaN/inf scores
+        if np.isnan(score) or np.isinf(score):
+            score = 0.0
             
         if self.best_score is None:
             self.best_score = score
             self.save_checkpoint(val_loss, val_c_index, model)
+            msg = f'EarlyStopping: Initial {self.primary_metric} = {score:.4f}'
+            if self.logger:
+                self.logger.info(msg)
+            elif self.verbose:
+                print(msg)
         elif score <= self.best_score + self.delta:
             # No improvement (score <= best_score + delta) or worse
             self.counter += 1
-            if self.verbose:
-                print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
+            msg = f'EarlyStopping counter: {self.counter}/{self.patience} ({self.primary_metric}: {score:.4f} <= {self.best_score:.4f} + {self.delta:.4f})'
+            if self.logger:
+                self.logger.info(msg)
+            elif self.verbose:
+                print(msg)
             if self.counter >= self.patience:
                 self.early_stop = True
+                msg = f'Early stopping triggered! No improvement for {self.patience} epochs.'
+                if self.logger:
+                    self.logger.info(msg)
+                elif self.verbose:
+                    print(msg)
         else:
             # Improvement (score > best_score + delta)
+            improvement = score - self.best_score
+            old_score = self.best_score
             self.best_score = score
             self.save_checkpoint(val_loss, val_c_index, model)
             self.counter = 0
+            msg = f'EarlyStopping: {self.primary_metric} improved from {old_score:.4f} to {self.best_score:.4f} (+{improvement:.4f}). Reset counter.'
+            if self.logger:
+                self.logger.info(msg)
+            elif self.verbose:
+                print(msg)
 
     def save_checkpoint(self, val_loss, val_c_index, model):
-        if self.verbose:
-            print(f'Validation C-index improved ({val_c_index:.4f}). Saving model...')
+        msg = f'Validation {self.primary_metric} improved ({val_c_index:.4f}). Saving model...'
+        if self.logger:
+            self.logger.info(msg)
+        elif self.verbose:
+            print(msg)
         self.best_model_state = model.state_dict().copy()
         
         # Save best model to file
         if self.save_dir and self.model_type:
             best_model_path = os.path.join(self.save_dir, f"best_{self.model_type}.pth")
             torch.save(model.state_dict(), best_model_path)
-            if self.verbose:
-                print(f'Saved best model to {best_model_path}')
-        
-        # Also save to logger if available
-        if hasattr(self, 'logger') and self.logger:
-            self.logger.info(f'Validation C-index improved ({val_c_index:.4f}). Saving model...')
-            self.logger.info(f'Saved best model to {best_model_path}')
+            msg = f'Saved best model to {best_model_path}'
+            if self.logger:
+                self.logger.info(msg)
+            elif self.verbose:
+                print(msg)
     
     def load_best_model(self, model):
         """Load the best model weights"""

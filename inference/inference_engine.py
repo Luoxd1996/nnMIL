@@ -48,7 +48,8 @@ class InferenceEngine:
             import json
             with open(plan_path, 'r') as f:
                 plan = json.load(f)
-            self.task_type = plan.get('dataset_info', {}).get('task_type', 'classification')
+            # task_type can be at top level or under dataset_info
+            self.task_type = plan.get('task_type') or plan.get('dataset_info', {}).get('task_type', 'classification')
         else:
             self.task_type = 'classification'  # Default
         
@@ -110,17 +111,60 @@ class InferenceEngine:
         hidden_dim = kwargs.get('hidden_dim', 512)
         
         # Try to get num_classes from multiple sources
+        # CRITICAL: For survival and regression, task_type determines num_classes first
+        # Do NOT use dataset.num_classes for these tasks as they may be incorrect
         num_classes = kwargs.get('num_classes')
         if num_classes is None:
-            if hasattr(dataset, 'num_classes'):
-                num_classes = dataset.num_classes
-            elif hasattr(dataset, 'label_to_idx'):
-                num_classes = len(dataset.label_to_idx)
+            if self.task_type == 'survival':
+                # For survival: check if using NLLSurvLoss (requires bins)
+                # First check plan file for training configuration
+                if self.plan_path and os.path.exists(self.plan_path):
+                    import json
+                    with open(self.plan_path, 'r') as f:
+                        plan = json.load(f)
+                    training_config = plan.get('training_configuration', {})
+                    survival_loss = training_config.get('survival_loss', 'cox')
+                    nll_bins = training_config.get('nll_bins')
+                    
+                    # If nll_bins is None, use default 4 for nllsurv
+                    if nll_bins is None:
+                        # Default for NLLSurv is 4 bins
+                        nll_bins = 4
+                    
+                    if survival_loss == 'nllsurv':
+                        num_classes = nll_bins  # NLLSurv: output per time bin
+                    else:
+                        num_classes = 1  # Cox loss: single risk score
+                else:
+                    # Fallback: check kwargs for survival_loss
+                    if kwargs.get('survival_loss') == 'nllsurv':
+                        num_classes = kwargs.get('nll_bins', 4)
+                    else:
+                        num_classes = 1  # Default to Cox loss
+            elif self.task_type == 'regression':
+                num_classes = 1  # Regression: single continuous value
             else:
-                num_classes = 2  # Default
+                # Classification: use dataset attributes or default
+                if hasattr(dataset, 'num_classes'):
+                    num_classes = dataset.num_classes
+                elif hasattr(dataset, 'label_to_idx'):
+                    num_classes = len(dataset.label_to_idx)
+                else:
+                    num_classes = 2  # Default for classification
         
         dropout = kwargs.get('dropout', 0.25)
         model_type = kwargs.get('model_type', 'simple_mil')
+        
+        # Debug: print num_classes determination for troubleshooting
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Creating model: task_type={self.task_type}, num_classes={num_classes}, model_type={model_type}")
+        if self.task_type == 'survival' and self.plan_path and os.path.exists(self.plan_path):
+            import json
+            with open(self.plan_path, 'r') as f:
+                plan = json.load(f)
+            training_config = plan.get('training_configuration', {})
+            logger.info(f"Plan config: survival_loss={training_config.get('survival_loss')}, nll_bins={training_config.get('nll_bins')}")
         
         # Create model
         model = create_mil_model(

@@ -86,14 +86,36 @@ Examples:
         config = get_config_from_plan(args.plan_path)
         dataset_info = get_dataset_info_from_plan(args.plan_path)
         
+        # Try to infer model_type from checkpoint path if not provided
+        inferred_model_type = None
+        if not args.model_type and args.checkpoint_path:
+            # Extract from checkpoint path: best_{model_type}.pth or .../model_type/...
+            checkpoint_basename = os.path.basename(args.checkpoint_path)
+            if checkpoint_basename.startswith('best_') and checkpoint_basename.endswith('.pth'):
+                # Format: best_{model_type}.pth
+                inferred_model_type = checkpoint_basename[5:-4]  # Remove 'best_' and '.pth'
+            else:
+                # Try to extract from directory path: .../model_type/...
+                checkpoint_dir = os.path.dirname(args.checkpoint_path)
+                parts = checkpoint_dir.split(os.sep)
+                # Look for common model types in path
+                for part in reversed(parts):
+                    if part in ['simple_mil', 'ab_mil', 'ds_mil', 'trans_mil', 'wikg_mil']:
+                        inferred_model_type = part
+                        break
+        
         # Override config with command-line arguments if provided
         kwargs = {
-            'model_type': args.model_type or config.get('model_type', 'simple_mil'),
+            'model_type': args.model_type or inferred_model_type or config.get('model_type', 'simple_mil'),
             'input_dim': args.input_dim or config.get('feature_dimension', 2560),
             'hidden_dim': args.hidden_dim or config.get('hidden_dim', 512),
             'dropout': args.dropout or config.get('dropout', 0.25),
             'batch_size': args.batch_size,
         }
+        
+        # Log model type inference
+        if inferred_model_type and not args.model_type:
+            print(f"ℹ️  Inferred model_type='{inferred_model_type}' from checkpoint path")
     else:
         # Legacy workflow - user must provide dataset manually
         raise ValueError("Plan-based workflow is required. Please provide --plan_path.")

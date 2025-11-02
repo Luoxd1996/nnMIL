@@ -111,8 +111,37 @@ def get_eval_metrics(
             
             try:
                 loss = log_loss(targets_all, probs_all, labels=labels_for_loss)
-                roc_auc = roc_auc_score(targets_all, probs_all, labels=unique_classes, **roc_kwargs)
                 eval_metrics[f"{prefix}/loss"] = loss
+                
+                # Calculate ROC AUC - handle binary and multi-class
+                # Binary: probs_all has 2 columns AND unique_classes has exactly 2 classes
+                is_binary = (probs_all.shape[1] == 2) and (len(unique_classes) == 2)
+                
+                if is_binary:
+                    # Binary classification: use probabilities of positive class (class 1)
+                    # Need at least 2 classes present in the data to calculate AUC
+                    unique_in_data = np.unique(targets_all)
+                    if len(unique_in_data) == 2:
+                        roc_auc = roc_auc_score(targets_all, probs_all[:, 1])
+                    else:
+                        # Only one class present in data, cannot calculate AUC
+                        roc_auc = np.nan
+                else:
+                    # Multi-class: use one-vs-rest (ovr) with macro average
+                    # Need at least 2 classes present in the data
+                    unique_in_data = np.unique(targets_all)
+                    if len(unique_in_data) > 1:
+                        roc_auc = roc_auc_score(
+                            targets_all, 
+                            probs_all, 
+                            labels=unique_classes,
+                            multi_class='ovr',
+                            average='macro',
+                            **roc_kwargs
+                        )
+                    else:
+                        # Only one class present in data, cannot calculate AUC
+                        roc_auc = np.nan
                 eval_metrics[f"{prefix}/auroc"] = roc_auc
             except Exception as e:
                 # If calculation fails, skip these metrics but continue

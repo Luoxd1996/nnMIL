@@ -6,7 +6,7 @@ set -e
 
 DATASET_DIR=${1:-"examples/Dataset001_classification"}
 MODEL_TYPE=${2:-"simple_mil"}
-CUDA_DEVICE=${3:-"0"}
+CUDA_DEVICE=${3:-"2"}
 
 export CUDA_VISIBLE_DEVICES=$CUDA_DEVICE
 
@@ -14,6 +14,9 @@ export CUDA_VISIBLE_DEVICES=$CUDA_DEVICE
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$PROJECT_ROOT"
+
+# Set Python path
+export PYTHONPATH="$PROJECT_ROOT:$PYTHONPATH"
 
 echo "=========================================="
 echo "nnMIL Classification Workflow"

@@ -191,7 +191,8 @@ class ClassificationTrainer(BaseTrainer):
             verbose=True,
             metric=metric,
             save_dir=self.save_dir,
-            model_type=self.model_type
+            model_type=self.model_type,
+            logger=self.logger
         )
         
         # Setup mixed precision
@@ -272,16 +273,28 @@ class ClassificationTrainer(BaseTrainer):
             torch.set_grad_enabled(True)
             self.model.train()
             
-            # Early stopping
-            if early_stopping(val_metrics.get('val_' + metric, 0.0), self.model, epoch):
+            # Early stopping - extract metrics from val_metrics
+            # Note: evaluate() returns prefixed metrics like "val_val/bacc" (split='val' + prefix='val')
+            # Check both prefixed and unprefixed keys for compatibility
+            val_loss = val_metrics.get('val_val/loss', val_metrics.get('val/loss', 0.0))
+            val_bacc = val_metrics.get('val_val/bacc', val_metrics.get('val/bacc', 0.0))
+            val_f1 = val_metrics.get('val_val/weighted_f1', val_metrics.get('val/weighted_f1', 0.0))
+            val_auc = val_metrics.get('val_val/auroc', val_metrics.get('val/auroc', 0.0))
+            val_kappa = val_metrics.get('val_val/kappa', val_metrics.get('val/kappa', None))
+            
+            early_stopping(val_loss, val_bacc, val_f1, val_auc, self.model, val_kappa=val_kappa)
+            if early_stopping.early_stop:
                 self.logger.info(f"Early stopping triggered at epoch {epoch+1}")
                 break
         
         # Load best model
-        best_model_path = os.path.join(self.save_dir, 'best_model.pth')
+        best_model_path = os.path.join(self.save_dir, f'best_{self.model_type}.pth')
         if os.path.exists(best_model_path):
             self.model.load_state_dict(torch.load(best_model_path, map_location=self.device))
             self.logger.info("Loaded best model for final evaluation")
+        elif hasattr(early_stopping, 'best_model_state'):
+            self.model.load_state_dict(early_stopping.best_model_state)
+            self.logger.info("Loaded best model from early stopping state")
         
         self.model.eval()
         torch.set_grad_enabled(False)
@@ -339,8 +352,23 @@ class ClassificationTrainer(BaseTrainer):
         all_labels = np.concatenate(all_labels)
         all_probs = np.concatenate(all_probs)
         
+        # Get predictions from probabilities (argmax)
+        all_preds = np.argmax(all_probs, axis=1)
+        
         # Calculate metrics
-        metrics = get_eval_metrics(all_labels, all_probs, num_classes=self.num_classes, logger=self.logger)
+        # Get unique classes from labels (or use self.num_classes to create range)
+        if hasattr(self, 'num_classes') and self.num_classes is not None:
+            unique_classes = list(range(self.num_classes))
+        else:
+            unique_classes = sorted(np.unique(all_labels).tolist())
+        
+        metrics = get_eval_metrics(
+            targets_all=all_labels,
+            preds_all=all_preds,
+            probs_all=all_probs,
+            unique_classes=unique_classes,
+            prefix=split
+        )
         
         # Add prefix
         prefixed_metrics = {f"{split}_{k}": v for k, v in metrics.items()}
@@ -353,14 +381,24 @@ class ClassificationTrainer(BaseTrainer):
         if split == 'test':
             import pandas as pd
             save_csv_path = os.path.join(self.save_dir, f"results_{self.model_type}.csv")
-            results_df = pd.DataFrame({
-                'sample_id': [f"sample_{i}" for i in range(len(all_labels))],
-                'true_label': all_labels,
-                'predicted_label': np.argmax(all_probs, axis=1),
-                'probability': all_probs[:, 1] if self.num_classes == 2 else [str(p) for p in all_probs]
-            })
-            if all_slide_ids:
-                results_df['slide_id'] = all_slide_ids
+            
+            # Create DataFrame with required columns
+            results_data = {
+                'slide_id': all_slide_ids if all_slide_ids else [f"sample_{i}" for i in range(len(all_labels))],
+                'patient_id': [None] * len(all_labels),  # Will be filled if available
+                'label': all_labels,
+                'prediction': all_preds
+            }
+            
+            # Add probability columns for each class
+            if self.num_classes == 2:
+                results_data['probability_class_0'] = all_probs[:, 0]
+                results_data['probability_class_1'] = all_probs[:, 1]
+            else:
+                for i in range(self.num_classes):
+                    results_data[f'probability_class_{i}'] = all_probs[:, i]
+            
+            results_df = pd.DataFrame(results_data)
             results_df.to_csv(save_csv_path, index=False)
             self.logger.info(f"Results saved to {save_csv_path}")
         
