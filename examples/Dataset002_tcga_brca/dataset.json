@@ -1,0 +1,19 @@
+{
+    "name": "TCGA-BRCA Survival Prediction",
+    "description": "TCGA breast cancer survival analysis dataset with 5-fold cross-validation",
+    "reference": "TCGA Research Network",
+    "licence": "None",
+    "release": "1.0",
+    "tensorImageSize": "4D",
+    "task_type": "survival",
+    "labels": {
+        "time_unit": "days",
+        "event_definition": "0=censored, 1=death"
+    },
+    "feature_dir": "/scratch/luoxd96/omnipath/features/virchow2/TCGA-BRCA/h5_files",
+    "clinical_dir": "/mnt/radonc-Li02_vol2/private/luoxd96/MIL/examples/Dataset002_tcga_brca/dataset.csv",
+    "metric": "c_index",
+    "evaluation_setting": "5_fold",
+    "numTraining": 1124,
+    "file_ending": ".h5"
+}
