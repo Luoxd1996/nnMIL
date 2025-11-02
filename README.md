@@ -526,7 +526,7 @@ nnMIL_results/
 ## Notes
 
 1. **Always run planning first**: The plan file is required for training
-2. **Patient-level splitting**: All splits are done at patient level to avoid data leakage
+2. **Patient-level splitting**: All splits are done at the patient level to avoid data leakage
 3. **Stratified splitting**: Splits maintain class/event distribution
 4. **Reproducibility**: Random seeds are set for reproducibility (default: 42)
 5. **CUDA Device Selection**: Use `CUDA_VISIBLE_DEVICES` environment variable to select GPUs
@@ -546,26 +546,6 @@ nnMIL_results/
 - Verify data splits are correct
 - Check early stopping metric matches your task
 
-## License
+## Acknowledgement
 
-MIT License
-
-Copyright (c) 2025 nnMIL Contributors
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+We would like to thank the [MIL_BASELINE](https://github.com/lingxitong/MIL_BASELINE) project for providing a comprehensive collection of MIL models. We also sincerely appreciate the [nnUNet](https://github.com/MIC-DKFZ/nnUNet) framework, which has greatly inspired and supported our work.
