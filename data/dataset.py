@@ -34,7 +34,7 @@ class UnifiedMILDataset(Dataset):
     def __init__(self, csv_path, features_dir, task_type='classification', 
                  transform=None, dataset_name="ebrains", split=None, fold=None,
                  max_seq_length=None, use_original_length=False, 
-                 max_seq_length_ratio=0.5, skip_feature_validation=False):
+                 max_seq_length_ratio=0.5, skip_feature_validation=False, seed=42):
         """
         Args:
             csv_path (str): Path to CSV file
@@ -58,6 +58,7 @@ class UnifiedMILDataset(Dataset):
         self.skip_feature_validation = skip_feature_validation
         self.max_seq_length_ratio = max_seq_length_ratio
         self.use_original_length = use_original_length  # Store for __getitem__
+        self.seed = seed  # Random seed for deterministic sampling
         
         # Normalize features_dir to handle multiple directories
         if isinstance(features_dir, (list, tuple)):
@@ -381,7 +382,9 @@ class UnifiedMILDataset(Dataset):
             num_patches = len(features)
             num_to_keep = int(num_patches * 0.9)  # Keep 90%
             if num_to_keep < num_patches and num_to_keep > 0:
-                indices = np.random.choice(num_patches, num_to_keep, replace=False)
+                # Use deterministic seed based on sample index
+                rng = np.random.RandomState(self.seed + idx)
+                indices = rng.choice(num_patches, num_to_keep, replace=False)
                 indices = np.sort(indices)  # Keep order for consistency
                 features = features[indices]
                 coords = coords[indices]
@@ -393,8 +396,9 @@ class UnifiedMILDataset(Dataset):
             num_patches = len(features)
             
             if num_patches > self.max_seq_length:
-                # Random selection if longer
-                indices = np.random.choice(num_patches, self.max_seq_length, replace=False)
+                # Random selection if longer - use deterministic seed based on sample index
+                rng = np.random.RandomState(self.seed + idx)
+                indices = rng.choice(num_patches, self.max_seq_length, replace=False)
                 features = features[indices]
                 coords = coords[indices]
                 actual_num_patches = self.max_seq_length
@@ -429,7 +433,8 @@ class UnifiedMILDataset(Dataset):
             status = torch.tensor(int(row['status']), dtype=torch.float32)
             time = torch.tensor(float(row['time']), dtype=torch.float32)
             patient_id = row.get('patient_id', row.get(self.slide_id_col, str(idx)))
-            return features, coords, bag_size, status, time, patient_id
+            slide_id = row.get(self.slide_id_col, str(idx))
+            return features, coords, bag_size, status, time, patient_id, slide_id
         elif self.task_type == 'regression':
             label = torch.tensor(float(row[self.label_col]), dtype=torch.float32)
             return features, coords, bag_size, label
@@ -597,21 +602,19 @@ def random_length_collate_fn(batch, max_seq_length=None, min_ratio=0.5, max_rati
         labels = torch.stack([item[3] for item in batch])
         return batch_features, batch_coords, batch_lengths, labels
     elif len(first_item) == 6:
-        # Need to distinguish between classification and survival
-        # Check item[4]: classification has slide_id (str), survival has time (float/tensor)
-        if isinstance(first_item[4], str) or (hasattr(first_item[4], 'item') and isinstance(first_item[4].item() if hasattr(first_item[4], 'item') else first_item[4], str)):
-            # Classification: features, coords, length, label, slide_id, dataset_name
-            labels = torch.stack([item[3] for item in batch])
-            slide_ids = [item[4] for item in batch]
-            datasets = [item[5] for item in batch]
-            return batch_features, batch_coords, batch_lengths, labels, slide_ids, datasets
-        else:
-            # Survival: features, coords, length, status, time, patient_id
-            status_list = [item[3] for item in batch]
-            time_list = [item[4] for item in batch]
-            patient_ids = [item[5] for item in batch]
-            status = torch.stack(status_list)
-            time = torch.stack(time_list)
-            return batch_features, batch_coords, batch_lengths, status, time, patient_ids
+        # Classification: features, coords, length, label, slide_id, dataset_name
+        labels = torch.stack([item[3] for item in batch])
+        slide_ids = [item[4] for item in batch]
+        datasets = [item[5] for item in batch]
+        return batch_features, batch_coords, batch_lengths, labels, slide_ids, datasets
+    elif len(first_item) == 7:
+        # Survival: features, coords, length, status, time, patient_id, slide_id
+        status_list = [item[3] for item in batch]
+        time_list = [item[4] for item in batch]
+        patient_ids = [item[5] for item in batch]
+        slide_ids = [item[6] for item in batch]
+        status = torch.stack(status_list)
+        time = torch.stack(time_list)
+        return batch_features, batch_coords, batch_lengths, status, time, patient_ids, slide_ids
     else:
         raise ValueError(f"Unexpected batch item length: {len(first_item)}")

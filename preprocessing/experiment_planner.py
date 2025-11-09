@@ -587,11 +587,8 @@ class ExperimentPlanner:
         metric = self.dataset_info.get('metric', 'bacc').lower()
         
         if self.task_type == 'survival':
-            # For survival tasks with c_index, use risk set sampler
-            if 'c_index' in metric or 'cindex' in metric:
-                batch_sampler = 'risk_set'
-            else:
-                batch_sampler = 'random'  # Default for survival
+            # For survival tasks, use random sampling (no special batch sampler)
+            batch_sampler = None  # None means use DataLoader's default random shuffle
             learning_rate = 1e-4  # Survival tasks use 1e-4
         else:
             # For classification/regression tasks

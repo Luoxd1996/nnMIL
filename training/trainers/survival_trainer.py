@@ -71,14 +71,23 @@ class SurvivalTrainer(BaseTrainer):
             time = torch.stack([item[4] for item in batch])
             patient_ids = [item[5] for item in batch]
             
+            # Check if batch has slide_ids (7 items)
+            if len(batch[0]) == 7:
+                slide_ids = [item[6] for item in batch]
+            else:
+                slide_ids = None
+            
             batch_features = torch.stack(features_list)
             batch_coords = torch.stack(coords_list)
             batch_bag_sizes = torch.stack(bag_sizes)
             
-            return batch_features, batch_coords, batch_bag_sizes, status, time, patient_ids
+            if slide_ids is not None:
+                return batch_features, batch_coords, batch_bag_sizes, status, time, patient_ids, slide_ids
+            else:
+                return batch_features, batch_coords, batch_bag_sizes, status, time, patient_ids
         
         batch_size = self.config.get('batch_size', 32)
-        batch_sampler_type = self.config.get('batch_sampler', 'risk_set')
+        batch_sampler_type = self.config.get('batch_sampler', None)  # Default to None (random sampling)
         
         # Create train loader with appropriate sampler
         if batch_sampler_type == 'risk_set' and batch_size > 1:
@@ -214,7 +223,12 @@ class SurvivalTrainer(BaseTrainer):
             
             pbar = tqdm(self.train_loader, desc=f"Epoch {epoch+1}")
             for batch_idx, batch in enumerate(pbar):
-                features, coords, bag_sizes, status, time, patient_ids = batch
+                # Survival dataset now returns 7 items: features, coords, bag_sizes, status, time, patient_ids, slide_ids
+                if len(batch) == 7:
+                    features, coords, bag_sizes, status, time, patient_ids, slide_ids = batch
+                else:
+                    # Old format with 6 items
+                    features, coords, bag_sizes, status, time, patient_ids = batch
                 
                 features = features.to(self.device)
                 status = status.to(self.device)
@@ -268,10 +282,13 @@ class SurvivalTrainer(BaseTrainer):
                 
                 if fp16_scaler is not None:
                     fp16_scaler.scale(loss).backward()
+                    fp16_scaler.unscale_(optimizer)
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
                     fp16_scaler.step(optimizer)
                     fp16_scaler.update()
                 else:
                     loss.backward()
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
                     optimizer.step()
                 
                 lr_scheduler(global_step)
@@ -283,37 +300,56 @@ class SurvivalTrainer(BaseTrainer):
             
             avg_loss = epoch_loss / max(epoch_steps, 1)
             epoch_time = time_module.time() - epoch_start_time
+            
             self.logger.info(f"Epoch {epoch+1}/{num_epochs} - Loss: {avg_loss:.4f}, Time: {epoch_time:.2f}s")
             
             if self.writer:
                 self.writer.add_scalar('Train/Loss', avg_loss, epoch)
             
-            # Validation
-            self.model.eval()
-            torch.set_grad_enabled(False)
-            val_metrics = self.evaluate('val')
-            torch.set_grad_enabled(True)
-            self.model.train()
-            
-            # Early stopping
-            metric_value = val_metrics.get(f'val_{metric}', val_metrics.get('val_c_index', 0.0))
-            # Convert to float to ensure it's a number, not a model object
-            if isinstance(metric_value, (torch.Tensor, np.ndarray)):
-                metric_value = float(metric_value.item() if isinstance(metric_value, torch.Tensor) else metric_value)
+            # Validation (skip first 2 epochs to allow model to warm up)
+            if epoch > 1:
+                self.model.eval()
+                torch.set_grad_enabled(False)
+                val_metrics = self.evaluate('val')
+                torch.set_grad_enabled(True)
+                self.model.train()
+                
+                # Save latest model after each validation
+                latest_model_path = os.path.join(self.save_dir, f"latest_{self.model_type}.pth")
+                torch.save(self.model.state_dict(), latest_model_path)
+                self.logger.info(f"Saved latest model to {latest_model_path}")
+                
+                # Early stopping
+                metric_value = val_metrics.get(f'val_{metric}', val_metrics.get('val_c_index', 0.0))
+                # Convert to float to ensure it's a number, not a model object
+                if isinstance(metric_value, (torch.Tensor, np.ndarray)):
+                    metric_value = float(metric_value.item() if isinstance(metric_value, torch.Tensor) else metric_value)
+                else:
+                    metric_value = float(metric_value)
+                # EarlyStoppingSurvival.__call__ signature: (val_loss, val_c_index, model)
+                # val_loss is not used but required by signature, pass 0.0
+                early_stopping(0.0, metric_value, self.model)
+                if early_stopping.early_stop:
+                    self.logger.info(f"Early stopping triggered at epoch {epoch+1}")
+                    break
             else:
-                metric_value = float(metric_value)
-            # EarlyStoppingSurvival.__call__ signature: (val_loss, val_c_index, model)
-            # val_loss is not used but required by signature, pass 0.0
-            early_stopping(0.0, metric_value, self.model)
-            if early_stopping.early_stop:
-                self.logger.info(f"Early stopping triggered at epoch {epoch+1}")
-                break
+                # Save latest model even in first 2 epochs (before validation starts)
+                latest_model_path = os.path.join(self.save_dir, f"latest_{self.model_type}.pth")
+                torch.save(self.model.state_dict(), latest_model_path)
+        
+        # Save latest model at the end of training
+        latest_model_path = os.path.join(self.save_dir, f"latest_{self.model_type}.pth")
+        torch.save(self.model.state_dict(), latest_model_path)
+        self.logger.info(f"Saved latest model to {latest_model_path}")
         
         # Load best model
-        best_model_path = os.path.join(self.save_dir, 'best_model.pth')
+        best_model_path = os.path.join(self.save_dir, f'best_{self.model_type}.pth')
         if os.path.exists(best_model_path):
             self.model.load_state_dict(torch.load(best_model_path, map_location=self.device))
             self.logger.info("Loaded best model for final evaluation")
+        elif hasattr(early_stopping, 'best_model_state') and early_stopping.best_model_state is not None:
+            self.model.load_state_dict(early_stopping.best_model_state)
+            self.logger.info("Loaded best model from early stopping state")
         
         self.model.eval()
         torch.set_grad_enabled(False)
@@ -338,7 +374,12 @@ class SurvivalTrainer(BaseTrainer):
         
         with torch.no_grad():
             for batch in tqdm(loader, desc=f"{prefix} Eval"):
-                features, coords, bag_sizes, status, time, patient_ids = batch
+                # Survival dataset now returns 7 items: features, coords, bag_sizes, status, time, patient_ids, slide_ids
+                if len(batch) == 7:
+                    features, coords, bag_sizes, status, time, patient_ids, slide_ids = batch
+                else:
+                    # Old format with 6 items
+                    features, coords, bag_sizes, status, time, patient_ids = batch
                 
                 features = features.to(self.device)
                 
@@ -354,10 +395,15 @@ class SurvivalTrainer(BaseTrainer):
                 
                 preds = logits.squeeze(-1).cpu().numpy()
                 
-                all_preds.append(preds)
-                all_status.append(status.cpu().numpy())
-                all_time.append(time.cpu().numpy())
-                all_patient_ids.extend(patient_ids)
+                # Flatten to ensure 1D arrays for concatenation
+                all_preds.append(preds.flatten())
+                all_status.append(status.cpu().numpy().flatten())
+                all_time.append(time.cpu().numpy().flatten())
+                # Handle patient_ids - could be list or single string
+                if isinstance(patient_ids, (list, tuple)):
+                    all_patient_ids.extend(patient_ids)
+                else:
+                    all_patient_ids.append(patient_ids)
         
         all_preds = np.concatenate(all_preds)
         all_status = np.concatenate(all_status)
@@ -410,7 +456,7 @@ class SurvivalTrainer(BaseTrainer):
         actual_config = {
             "batch_size": self.config.get('batch_size', 32),
             "learning_rate": self.config.get('learning_rate', 1e-4),
-            "batch_sampler": self.config.get('batch_sampler', 'risk_set'),
+            "batch_sampler": self.config.get('batch_sampler', None),  # None means random sampling
             "model_type": self.model_type,
             "num_epochs": self.config.get('num_epochs', 100),
             "warmup_epochs": self.config.get('warmup_epochs', 5),

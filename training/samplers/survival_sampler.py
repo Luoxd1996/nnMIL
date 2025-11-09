@@ -15,10 +15,15 @@ class BalancedSurvivalSampler(torch.utils.data.Sampler):
         # Get survival status for all samples
         self.status = []
         for i in range(len(dataset)):
-            _, _, _, status, _, _ = dataset[i]
-            self.status.append(status.item())
+            item = dataset[i]
+            # Handle both 6-item (old) and 7-item (new with slide_id) formats
+            if len(item) == 7:
+                _, _, _, status, _, _, _ = item
+            else:
+                _, _, _, status, _, _ = item
+            self.status.append(int(status.item()))
         
-        self.status = np.array(self.status)
+        self.status = np.array(self.status, dtype=np.int64)
         self.num_classes = len(np.unique(self.status))  # Should be 2 (0=censored, 1=event)
         
         # Calculate samples per class per batch
@@ -94,12 +99,17 @@ class StratifiedSurvivalSampler(torch.utils.data.Sampler):
         self.status = []
         self.time = []
         for i in range(len(dataset)):
-            _, _, _, status, time, _ = dataset[i]
-            self.status.append(status.item())
-            self.time.append(time.item())
+            item = dataset[i]
+            # Handle both 6-item (old) and 7-item (new with slide_id) formats
+            if len(item) == 7:
+                _, _, _, status, time, _, _ = item
+            else:
+                _, _, _, status, time, _ = item
+            self.status.append(int(status.item()))
+            self.time.append(float(time.item()))
         
-        self.status = np.array(self.status)
-        self.time = np.array(self.time)
+        self.status = np.array(self.status, dtype=np.int64)
+        self.time = np.array(self.time, dtype=np.float64)
         
         # Calculate status distribution
         status_counts = np.bincount(self.status)
@@ -131,7 +141,8 @@ class StratifiedSurvivalSampler(torch.utils.data.Sampler):
             
             # Separate indices by status
             status_indices = {}
-            for status_id in range(len(self.target_probs)):
+            num_status_classes = len(self.target_probs) if isinstance(self.target_probs, np.ndarray) else len(self.target_probs)
+            for status_id in range(num_status_classes):
                 status_indices[status_id] = all_indices[self.status == status_id]
                 np.random.shuffle(status_indices[status_id])
             
@@ -143,15 +154,31 @@ class StratifiedSurvivalSampler(torch.utils.data.Sampler):
                 batch = []
                 
                 # Calculate how many samples of each status to include
-                for status_id, prob in self.target_probs.items():
-                    n_samples = int(self.batch_size * prob)
-                    
-                    # Get samples from this status
-                    start_ptr = status_pointers[status_id]
-                    end_ptr = min(start_ptr + n_samples, len(status_indices[status_id]))
-                    
-                    batch.extend(status_indices[status_id][start_ptr:end_ptr])
-                    status_pointers[status_id] = end_ptr
+                # Handle both numpy array and dict formats for target_probs
+                if isinstance(self.target_probs, np.ndarray):
+                    for status_id in range(len(self.target_probs)):
+                        prob = self.target_probs[status_id]
+                        n_samples = int(self.batch_size * prob)
+                        
+                        # Get samples from this status
+                        if status_id in status_indices:
+                            start_ptr = status_pointers[status_id]
+                            end_ptr = min(start_ptr + n_samples, len(status_indices[status_id]))
+                            
+                            batch.extend(status_indices[status_id][start_ptr:end_ptr])
+                            status_pointers[status_id] = end_ptr
+                else:
+                    # Dict format
+                    for status_id, prob in self.target_probs.items():
+                        n_samples = int(self.batch_size * prob)
+                        
+                        # Get samples from this status
+                        if status_id in status_indices:
+                            start_ptr = status_pointers[status_id]
+                            end_ptr = min(start_ptr + n_samples, len(status_indices[status_id]))
+                            
+                            batch.extend(status_indices[status_id][start_ptr:end_ptr])
+                            status_pointers[status_id] = end_ptr
                 
                 # If batch is not full, fill with remaining samples
                 if len(batch) < self.batch_size:
@@ -197,8 +224,15 @@ class RiskSetBatchSampler(torch.utils.data.Sampler):
         # Extract time and status
         times, status = [], []
         for i in range(len(dataset)):
-            # Assume __getitem__ returns (..., status, time, ...)
-            _, _, _, s, t, _ = dataset[i]
+            # Survival dataset returns: features, coords, bag_size, status, time, patient_id, slide_id (7 items)
+            item = dataset[i]
+            if len(item) == 7:
+                _, _, _, s, t, _, _ = item
+            elif len(item) == 6:
+                # Old format without slide_id
+                _, _, _, s, t, _ = item
+            else:
+                raise ValueError(f"Unexpected dataset item length: {len(item)}")
             times.append(float(t))
             status.append(int(s))
         times = np.asarray(times); status = np.asarray(status)

@@ -273,6 +273,11 @@ class ClassificationTrainer(BaseTrainer):
             torch.set_grad_enabled(True)
             self.model.train()
             
+            # Save latest model after each validation
+            latest_model_path = os.path.join(self.save_dir, f"latest_{self.model_type}.pth")
+            torch.save(self.model.state_dict(), latest_model_path)
+            self.logger.info(f"Saved latest model to {latest_model_path}")
+            
             # Early stopping - extract metrics from val_metrics
             # Note: evaluate() returns prefixed metrics like "val_val/bacc" (split='val' + prefix='val')
             # Check both prefixed and unprefixed keys for compatibility
@@ -286,6 +291,11 @@ class ClassificationTrainer(BaseTrainer):
             if early_stopping.early_stop:
                 self.logger.info(f"Early stopping triggered at epoch {epoch+1}")
                 break
+        
+        # Save latest model at the end of training
+        latest_model_path = os.path.join(self.save_dir, f"latest_{self.model_type}.pth")
+        torch.save(self.model.state_dict(), latest_model_path)
+        self.logger.info(f"Saved latest model to {latest_model_path}")
         
         # Load best model
         best_model_path = os.path.join(self.save_dir, f'best_{self.model_type}.pth')

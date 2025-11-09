@@ -333,17 +333,30 @@ class RegressionTrainer(BaseTrainer):
             torch.set_grad_enabled(True)
             self.model.train()
             
+            # Save latest model after each validation
+            latest_model_path = os.path.join(self.save_dir, f"latest_{self.model_type}.pth")
+            torch.save(self.model.state_dict(), latest_model_path)
+            self.logger.info(f"Saved latest model to {latest_model_path}")
+            
             # Early stopping
             metric_value = val_metrics.get(f'val_{metric}', val_metrics.get('val_pearson', 0.0))
             if early_stopping(metric_value, self.model, epoch):
                 self.logger.info(f"Early stopping triggered at epoch {epoch+1}")
                 break
         
+        # Save latest model at the end of training
+        latest_model_path = os.path.join(self.save_dir, f"latest_{self.model_type}.pth")
+        torch.save(self.model.state_dict(), latest_model_path)
+        self.logger.info(f"Saved latest model to {latest_model_path}")
+        
         # Load best model
-        best_model_path = os.path.join(self.save_dir, 'best_model.pth')
+        best_model_path = os.path.join(self.save_dir, f'best_{self.model_type}.pth')
         if os.path.exists(best_model_path):
             self.model.load_state_dict(torch.load(best_model_path, map_location=self.device))
             self.logger.info("Loaded best model for final evaluation")
+        elif hasattr(early_stopping, 'best_model_state') and early_stopping.best_model_state is not None:
+            self.model.load_state_dict(early_stopping.best_model_state)
+            self.logger.info("Loaded best model from early stopping state")
         
         self.model.eval()
         torch.set_grad_enabled(False)

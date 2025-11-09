@@ -78,16 +78,17 @@ class SurvivalPredictor(BasePredictor):
         with torch.no_grad(), torch.amp.autocast(device_type, dtype=torch.bfloat16):
             for batch_idx, batch in enumerate(tqdm(test_loader, desc="Test Inference")):
                 # Handle different batch formats
-                # Survival datasets return: features, coords, bag_sizes, status, time, [slide_id, patient_id, ...]
+                # Survival datasets return: features, coords, bag_sizes, status, time, patient_id, slide_id
                 if len(batch) >= 6:
                     features, coords, bag_sizes, status, time = batch[:5]
-                    # Extract slide_id and patient_id if available
+                    # Extract patient_id and slide_id if available
                     if len(batch) >= 7:
-                        slide_id = batch[5]
-                        patient_id = batch[6] if len(batch) > 6 else slide_id
+                        patient_id = batch[5]
+                        slide_id = batch[6] if len(batch) > 6 else patient_id
                     else:
-                        slide_id = [f"batch_{batch_idx}_sample_{i}" for i in range(len(status))]
-                        patient_id = slide_id.copy()
+                        # Old format without slide_id
+                        patient_id = batch[5]
+                        slide_id = patient_id
                     
                     # Handle string/list conversion
                     if isinstance(slide_id, str):
@@ -222,34 +223,51 @@ class SurvivalPredictor(BasePredictor):
         if logger:
             logger.info("Computing patient-level metrics...")
         
-        # Calculate C-index at patient level (overall)
-        c_index = survival_c_index(
-            torch.from_numpy(preds_all), 
-            torch.from_numpy(status_all), 
-            torch.from_numpy(time_all),
-            patient_ids=patient_ids_all
-        )
+        # Check if we have any events (not all censored)
+        has_events = status_all.sum() > 0
         
-        metrics = {
-            "overall": {
-                "Test_Overall_C-index": float(c_index),
-                "Test_Overall_Events": int(status_all.sum()),
-                "Test_Overall_Censored": int((1 - status_all).sum()),
-                "Test_Overall_Event_Rate": float(status_all.mean()),
-                "Test_Overall_Mean_Survival_Time": float(time_all.mean()),
-                "Test_Overall_Median_Survival_Time": float(np.median(time_all))
+        # Calculate C-index at patient level (overall) only if we have events
+        if has_events:
+            c_index = survival_c_index(
+                torch.from_numpy(preds_all), 
+                torch.from_numpy(status_all), 
+                torch.from_numpy(time_all),
+                patient_ids=patient_ids_all
+            )
+            
+            metrics = {
+                "overall": {
+                    "Test_Overall_C-index": float(c_index),
+                    "Test_Overall_Events": int(status_all.sum()),
+                    "Test_Overall_Censored": int((1 - status_all).sum()),
+                    "Test_Overall_Event_Rate": float(status_all.mean()),
+                    "Test_Overall_Mean_Survival_Time": float(time_all.mean()),
+                    "Test_Overall_Median_Survival_Time": float(np.median(time_all))
+                }
             }
-        }
-        
-        # Log overall results
-        if logger:
-            logger.info("Test Overall Results:")
-            logger.info(f"  Overall C-index: {c_index:.4f}")
-            logger.info(f"  Overall Events: {int(status_all.sum())}")
-            logger.info(f"  Overall Censored: {int((1 - status_all).sum())}")
-            logger.info(f"  Overall Event Rate: {status_all.mean():.4f}")
-            logger.info(f"  Overall Mean Survival Time: {time_all.mean():.2f}")
-            logger.info(f"  Overall Median Survival Time: {np.median(time_all):.2f}")
+            
+            # Log overall results
+            if logger:
+                logger.info("Test Overall Results:")
+                logger.info(f"  Overall C-index: {c_index:.4f}")
+                logger.info(f"  Overall Events: {int(status_all.sum())}")
+                logger.info(f"  Overall Censored: {int((1 - status_all).sum())}")
+                logger.info(f"  Overall Event Rate: {status_all.mean():.4f}")
+                logger.info(f"  Overall Mean Survival Time: {time_all.mean():.2f}")
+                logger.info(f"  Overall Median Survival Time: {np.median(time_all):.2f}")
+        else:
+            # No events - external test data without labels
+            metrics = {
+                "overall": {
+                    "Test_Overall_Events": int(status_all.sum()),
+                    "Test_Overall_Censored": int((1 - status_all).sum()),
+                }
+            }
+            
+            if logger:
+                logger.info("Test Overall Results:")
+                logger.info("  No events found (external test data without labels)")
+                logger.info(f"  Total samples: {len(status_all)}")
         
         # Calculate metrics by dataset for DSS/PFS datasets
         if hasattr(test_dataset, 'is_dss_dataset') and test_dataset.is_dss_dataset:
@@ -267,31 +285,44 @@ class SurvivalPredictor(BasePredictor):
                     dataset_time = time_all[dataset_mask]
                     dataset_patient_ids = [patient_ids_all[i] for i in range(len(patient_ids_all)) if dataset_mask[i]]
                     
-                    # Calculate C-index for this dataset
-                    dataset_c_index = survival_c_index(
-                        torch.from_numpy(dataset_preds),
-                        torch.from_numpy(dataset_status),
-                        torch.from_numpy(dataset_time),
-                        patient_ids=dataset_patient_ids
-                    )
+                    # Check if this dataset has any events
+                    dataset_has_events = dataset_status.sum() > 0
                     
-                    # Store dataset-specific metrics
-                    metrics["by_dataset"][ds] = {
-                        f"Test_{ds}_C-index": float(dataset_c_index),
-                        f"Test_{ds}_Events": int(dataset_status.sum()),
-                        f"Test_{ds}_Censored": int((1 - dataset_status).sum()),
-                        f"Test_{ds}_Event_Rate": float(dataset_status.mean()),
-                        f"Test_{ds}_Mean_Survival_Time": float(dataset_time.mean()),
-                        f"Test_{ds}_Median_Survival_Time": float(np.median(dataset_time))
-                    }
-                    
-                    if logger:
-                        logger.info(f"  {ds}:")
-                        logger.info(f"    C-index: {dataset_c_index:.4f}")
-                        logger.info(f"    Events: {int(dataset_status.sum())}")
-                        logger.info(f"    Censored: {int((1 - dataset_status).sum())}")
-                        logger.info(f"    Event Rate: {dataset_status.mean():.4f}")
-                        logger.info(f"    Mean Survival Time: {dataset_time.mean():.2f}")
+                    if dataset_has_events:
+                        # Calculate C-index for this dataset
+                        dataset_c_index = survival_c_index(
+                            torch.from_numpy(dataset_preds),
+                            torch.from_numpy(dataset_status),
+                            torch.from_numpy(dataset_time),
+                            patient_ids=dataset_patient_ids
+                        )
+                        
+                        # Store dataset-specific metrics
+                        metrics["by_dataset"][ds] = {
+                            f"Test_{ds}_C-index": float(dataset_c_index),
+                            f"Test_{ds}_Events": int(dataset_status.sum()),
+                            f"Test_{ds}_Censored": int((1 - dataset_status).sum()),
+                            f"Test_{ds}_Event_Rate": float(dataset_status.mean()),
+                            f"Test_{ds}_Mean_Survival_Time": float(dataset_time.mean()),
+                            f"Test_{ds}_Median_Survival_Time": float(np.median(dataset_time))
+                        }
+                        
+                        if logger:
+                            logger.info(f"  {ds}:")
+                            logger.info(f"    C-index: {dataset_c_index:.4f}")
+                            logger.info(f"    Events: {int(dataset_status.sum())}")
+                            logger.info(f"    Censored: {int((1 - dataset_status).sum())}")
+                    else:
+                        # No events in this dataset
+                        metrics["by_dataset"][ds] = {
+                            f"Test_{ds}_Events": int(dataset_status.sum()),
+                            f"Test_{ds}_Censored": int((1 - dataset_status).sum()),
+                        }
+                        
+                        if logger:
+                            logger.info(f"  {ds}:")
+                            logger.info(f"    No events (external test data)")
+                            logger.info(f"    Total samples: {len(dataset_status)}")
         
         # Create results DataFrame
         results_dict = {
@@ -330,4 +361,13 @@ class SurvivalPredictor(BasePredictor):
             if logger:
                 logger.info(f"Results saved to {save_csv_path}")
         
-        return metrics
+        # Return both metrics and predictions
+        return {
+            'metrics': metrics,
+            'risk_scores': preds_all,
+            'patient_ids': patient_ids_all,
+            'slide_ids': slide_ids,
+            'status': status_all,
+            'time': time_all,
+            'datasets': datasets_all
+        }

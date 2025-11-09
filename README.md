@@ -11,6 +11,11 @@ A modular MIL (Multiple Instance Learning) framework following nnUNet design pri
 - **Support for Multiple Tasks**: Classification, Regression, and Survival Analysis
 - **5-Fold Cross-Validation**: Built-in support for k-fold CV with patient-level stratification
 
+## Reference Resources
+
+- Example datasets and experiment configurations: https://drive.google.com/drive/folders/1HF7jjH3FiWDIGCvvWBqD-3Z0Sgv8Dh-g?usp=sharing
+- Precomputed experiment results (predictions, metrics, logs): https://drive.google.com/drive/folders/1-DPqIUUy0oYFicGGdEuHzehrQQFyDoXI?usp=sharing
+
 ## Directory Structure
 
 ```

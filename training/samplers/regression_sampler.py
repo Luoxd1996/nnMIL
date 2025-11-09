@@ -18,15 +18,13 @@ class RegressionBatchSampler(torch.utils.data.Sampler):
         self.num_bins = num_bins
 
         # Collect target values
+        # Format: (features, coords, bag_size, label, ...)
+        # Label is always at index 3 regardless of tuple length
         targets = []
         for i in range(len(dataset)):
             sample = dataset[i]
-            if len(sample) == 6:
-                # (features, coords, patch_size_lv0, label, slide_id, dataset_name)
-                _, _, _, target, _, _ = sample
-            else:
-                # (features, coords, patch_size_lv0, label)
-                _, _, _, target = sample
+            # Label is always at index 3
+            target = sample[3]
             targets.append(float(target.item() if torch.is_tensor(target) else target))
         
         self.targets = np.array(targets)

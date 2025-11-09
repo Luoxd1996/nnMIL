@@ -22,6 +22,8 @@ class BalancedBatchSampler(torch.utils.data.Sampler):
             lbls = []
             for i in range(len(dataset)):
                 sample = dataset[i]
+                # Label is always at index 3 regardless of tuple length
+                # Format: (features, coords, bag_size, label, ...)
                 label = sample[3]
                 lbls.append(int(label.item() if hasattr(label, "item") else label))
             self.labels = np.asarray(lbls, dtype=int)
@@ -138,16 +140,14 @@ class AUCBatchSampler(torch.utils.data.Sampler):
         self.shuffle = bool(shuffle)
         self.seed = seed
 
-        # 1) Collect labels; handle both 4-element and 6-element returns
+        # 1) Collect labels; handle different return formats
+        # Format: (features, coords, bag_size, label, ...)
+        # Label is always at index 3 regardless of tuple length
         labels = []
         for i in range(len(dataset)):
             sample = dataset[i]
-            if len(sample) == 6:
-                # (features, coords, patch_size_lv0, label, slide_id, dataset_name)
-                _, _, _, y, _, _ = sample
-            else:
-                # (features, coords, patch_size_lv0, label)
-                _, _, _, y = sample
+            # Label is always at index 3
+            y = sample[3]
             labels.append(int(y.item() if torch.is_tensor(y) else y))
         self.labels = np.asarray(labels, dtype=np.int64)
 
