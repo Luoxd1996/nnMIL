@@ -1,0 +1,31 @@
+name: nnmil
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pytorch=2.3.0
+  - torchvision=0.18.0
+  - torchaudio=2.3.0
+  - pytorch-cuda=12.1
+  - numpy=1.26
+  - pandas=2.2
+  - scikit-learn=1.4
+  - scipy=1.11
+  - h5py=3.10
+  - lifelines=0.27
+  - pyarrow
+  - pyyaml
+  - tqdm
+  - pillow
+  - matplotlib
+  - seaborn
+  - tensorboard
+  - pip
+  - pip:
+      - timm==1.0.7
+      - einops==0.7.0
+      - prettytable==3.10.0
+      - boto3==1.34.70
+

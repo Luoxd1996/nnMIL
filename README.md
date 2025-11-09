@@ -1,6 +1,6 @@
 # nnMIL: No-New Multiple Instance Learning
 
-A modular MIL (Multiple Instance Learning) framework following nnUNet design principles for computational pathology.
+A generalist multiple instance learning framework for computational pathology.
 
 ## Features
 
@@ -63,16 +63,7 @@ nnMIL/
 - For convenience, snapshots of `nnMIL_raw_data` and `nnMIL_results` are also available in Google Drive:
   - Datasets & plans: https://drive.google.com/drive/folders/1HF7jjH3FiWDIGCvvWBqD-3Z0Sgv8Dh-g?usp=sharing
   - Experiment outputs: https://drive.google.com/drive/folders/1-DPqIUUy0oYFicGGdEuHzehrQQFyDoXI?usp=sharing
-
-### Precomputed Feature Sets
-
-We also provide feature embeddings extracted from multiple cohorts for direct reuse:
-
-- TCGA collection: https://drive.google.com/drive/folders/1gjL3Uhumk35YSkbz1TOFMzUBumZfSBGZ?usp=sharing
-- Uni collection: https://drive.google.com/drive/folders/1gjL3Uhumk35YSkbz1TOFMzUBumZfSBGZ?usp=sharing
-- Virchow2 collection: https://drive.google.com/drive/folders/1PVuRhnc_ObUn1aFRSiyk5_5vtWjoCeNv?usp=sharing
-- EBRAINS coarse/fine features: https://drive.google.com/file/d/16tpUS-o21WsQH1U3Jyqi4784sb-OceiB/view?usp=sharing
-
+  
 ## Complete Workflow
 
 The nnMIL workflow consists of three main steps:
@@ -147,13 +138,9 @@ python nnMIL/run/nnMIL_predict.py \
 
 For k-fold setups, loop over the folds and point to the respective checkpoints, saving predictions back into each fold directory.
 
-## Work in Progress
+### 5. Quick evaluation
+We also provide feature embeddings extracted from multiple cohorts for direct reuse: TCGA with [UNI embeddings](https://drive.google.com/drive/folders/1gjL3Uhumk35YSkbz1TOFMzUBumZfSBGZ?usp=sharing), [Virchow2 embeddings](https://drive.google.com/drive/folders/1PVuRhnc_ObUn1aFRSiyk5_5vtWjoCeNv?usp=sharing), [EBRAINS](https://drive.google.com/file/d/16tpUS-o21WsQH1U3Jyqi4784sb-OceiB/view?usp=sharing)
 
-- Expanding support for additional public cohorts with standardized plans and results.
-- Integrating new sampler strategies and evaluation dashboards across tasks.
-- Continuous validation of precomputed feature archives (TCGA, UNI, Virchow2, EBRAINS) to keep them aligned with code updates.
-
-Questions or collaboration ideas? Reach out at luoxd96@stanford.edu.
 
 ## Complete Workflow Scripts
 
@@ -533,4 +520,7 @@ nnMIL_results/
 
 ## Acknowledgement
 
-We would like to thank the [MIL_BASELINE](https://github.com/lingxitong/MIL_BASELINE) project for providing a comprehensive collection of MIL models. We also sincerely appreciate the [nnUNet](https://github.com/MIC-DKFZ/nnUNet) framework, which has greatly inspired and supported our work.
+- We would like to thank the [MIL_BASELINE](https://github.com/lingxitong/MIL_BASELINE) project for providing a comprehensive collection of MIL models. We also sincerely appreciate the [nnUNet](https://github.com/MIC-DKFZ/nnUNet) framework, which has greatly inspired and supported our work. 
+
+- Work in progress, we will provide more details and examples in the future. Questions or collaboration ideas, please reach out at luoxd96 at stanford dot edu.
+
