@@ -60,9 +60,7 @@ nnMIL/
 - Raw datasets and generated plans live under `nnMIL_raw_data/`, e.g. `nnMIL_raw_data/Task001_CRC_DSS/dataset.json`, `dataset.csv`, `dataset_plan.json`.
 - Model checkpoints, logs, and prediction CSVs are stored in `nnMIL_results/`, organized by task/model/fold (for example `nnMIL_results/Task010_TCGA-BRCA/simple_mil/fold_0/`).
 - The `scripts/` directory contains ready-to-run bash workflows (classification, survival, PLCO CRC, etc.) that assume the above layout.
-- For convenience, snapshots of `nnMIL_raw_data` and `nnMIL_results` are also available in Google Drive:
-  - Datasets & plans: https://drive.google.com/drive/folders/1HF7jjH3FiWDIGCvvWBqD-3Z0Sgv8Dh-g?usp=sharing
-  - Experiment outputs: https://drive.google.com/drive/folders/1-DPqIUUy0oYFicGGdEuHzehrQQFyDoXI?usp=sharing
+- For convenience, snapshots of [`nnMIL_raw_data`](https://drive.google.com/drive/folders/1HF7jjH3FiWDIGCvvWBqD-3Z0Sgv8Dh-g?usp=sharing) with datasets & plans and [`nnMIL_results`](https://drive.google.com/drive/folders/1-DPqIUUy0oYFicGGdEuHzehrQQFyDoXI?usp=sharing) with logs/weights & results and are also available in Google Drive.
   
 ## Complete Workflow
 
