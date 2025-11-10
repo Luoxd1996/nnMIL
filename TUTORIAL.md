@@ -25,11 +25,10 @@ Optional reference data:
 
 - [Example `nnMIL_raw_data` snapshot](https://drive.google.com/drive/folders/1HF7jjH3FiWDIGCvvWBqD-3Z0Sgv8Dh-g?usp=sharing)
 - [Example `nnMIL_results` snapshot](https://drive.google.com/drive/folders/1-DPqIUUy0oYFicGGdEuHzehrQQFyDoXI?usp=sharing)
-- Pre-extracted feature sets for TCGA/UNI, Virchow2, and EBRAINS cohorts (links in `README.md`)
-
+- Patch-level embedding for quick try:[TCGA/UNI](https://drive.google.com/drive/folders/1gjL3Uhumk35YSkbz1TOFMzUBumZfSBGZ?usp=sharing),[TCGA/Virchow2](https://drive.google.com/drive/folders/1PVuRhnc_ObUn1aFRSiyk5_5vtWjoCeNv?usp=sharing),[EBRAINS](https://drive.google.com/file/d/16tpUS-o21WsQH1U3Jyqi4784sb-OceiB/view?usp=sharing).
 ## 2. Quick Try with Provided Example Tasks
 
-Start here if you just want nnMIL running immediately. We distribute four ready-to-go tasks; after downloading the features and fixing the absolute paths, you can plan, train, and evaluate without touching any Python code.
+Start here if you just want nnMIL running immediately. We distribute four ready-to-go tasks; after downloading the features and **fixing the absolute paths**, you can plan (if you want to reuse my plans, please fix the paths), train, and evaluate without touching any python code.
 
 Each bundle contains:
 
