@@ -2,9 +2,9 @@
 
 A generalist multiple instance learning framework for computational pathology.
 
+- **Don't design fancy MIL again** training strategy optimize is all we need
 - **Unified pipeline** for classification, regression, and survival MIL tasks
 - **Plan-driven training** that inspects slide features, builds patient-level splits, and recommends hyper-parameters
-- **Model zoo** including attention-, transformer-, and dual-stream MIL variants
 - **Consistent inference utilities** for official or k-fold evaluation settings
 
 Looking for the full step-by-step walkthrough? Jump to [`TUTORIAL.md`](./TUTORIAL.md).
