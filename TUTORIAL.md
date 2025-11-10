@@ -38,10 +38,10 @@ Each bundle contains:
 
 | Task ID | Cohort / Description | Feature link |
 | ------- | -------------------- | ------------ |
-| `Task001_CRC_DSS` | CRC DSS survival | Included in the `nnMIL_raw_data` snapshot |
+| `Task001_CRC_DSS` | CRC DSS survival | [Google Drive](https://drive.google.com/drive/folders/1SiF379K70hWAPzq6TOKrwX8VX2DCDyJq?usp=sharing)|
 | `Task010_TCGA-BRCA` | TCGA BRCA classification with UNI embeddings | [Google Drive](https://drive.google.com/drive/folders/1gjL3Uhumk35YSkbz1TOFMzUBumZfSBGZ?usp=sharing) |
+| `Task002_EBRAINS_Fine` | EBRAINS coarse classification | [Google Drive](https://drive.google.com/file/d/16tpUS-o21WsQH1U3Jyqi4784sb-OceiB/view?usp=sharing) |
 | `Task002_EBRAINS_Coarse` | EBRAINS coarse classification | [Google Drive](https://drive.google.com/file/d/16tpUS-o21WsQH1U3Jyqi4784sb-OceiB/view?usp=sharing) |
-| `TaskXXX_Virchow2` | Virchow2 embeddings example | [Google Drive](https://drive.google.com/drive/folders/1PVuRhnc_ObUn1aFRSiyk5_5vtWjoCeNv?usp=sharing) |
 
 ### Steps
 
