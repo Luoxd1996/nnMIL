@@ -31,10 +31,10 @@ Reference bundles:
 
 - [Datasets & plan files (`nnMIL_raw_data` snapshot)](https://drive.google.com/drive/folders/1HF7jjH3FiWDIGCvvWBqD-3Z0Sgv8Dh-g?usp=sharing)
 - [Experiment outputs (`nnMIL_results` snapshot)](https://drive.google.com/drive/folders/1-DPqIUUy0oYFicGGdEuHzehrQQFyDoXI?usp=sharing)
-- Precomputed features:
-  - [TCGA / UNI embeddings](https://drive.google.com/drive/folders/1gjL3Uhumk35YSkbz1TOFMzUBumZfSBGZ?usp=sharing)
-  - [Virchow2 embeddings](https://drive.google.com/drive/folders/1PVuRhnc_ObUn1aFRSiyk5_5vtWjoCeNv?usp=sharing)
-  - [EBRAINS features](https://drive.google.com/file/d/16tpUS-o21WsQH1U3Jyqi4784sb-OceiB/view?usp=sharing)
+- Extracted patch-level embeddings (TCGA/EBRAINS using Virchow2 and UNI):
+  - [TCGA/UNI](https://drive.google.com/drive/folders/1gjL3Uhumk35YSkbz1TOFMzUBumZfSBGZ?usp=sharing)
+  - [TCGA/Virchow2](https://drive.google.com/drive/folders/1PVuRhnc_ObUn1aFRSiyk5_5vtWjoCeNv?usp=sharing)
+  - [EBRAINS](https://drive.google.com/file/d/16tpUS-o21WsQH1U3Jyqi4784sb-OceiB/view?usp=sharing)
 
 ## Environment & Dependencies
 
