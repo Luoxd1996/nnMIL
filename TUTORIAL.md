@@ -327,6 +327,6 @@ python nnMIL/run/nnMIL_predict.py \
 - Explore alternative model architectures under `network_architecture/models/`.
 - Extend scripts or write new ones for your laboratory workflow; reuse environment assumptions described here.
 
-If you encounter issues not covered in this tutorial, please reach out at `luoxd96@stanford.edu`. Contributions and improvements are welcome.***
+**If you encounter issues not covered in this tutorial, please reach out at luoxd96 AT stanford DOT edu. Contributions and improvements are welcome.**
 
 
