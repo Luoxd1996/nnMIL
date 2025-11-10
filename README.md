@@ -91,7 +91,7 @@ All scripts assume the project root is the parent of `nnMIL/` and write outputs 
 
 ## Status & Contact
 
-nnMIL is actively evolving—expect iterative updates to the planner, trainers, and evaluation scripts. Feedback and contributions are welcome. Reach out at `luoxd96@stanford.edu`.
+nnMIL is actively evolving—expect iterative updates to the planner, trainers, and evaluation scripts. Feedback and contributions are welcome. Reach out at luoxd96 at stanford dot edu.
 
 👉 A comprehensive tutorial (classification + survival, custom dataset adaptation, shell scripts) is maintained in [`TUTORIAL.md`](./TUTORIAL.md) and updated alongside code changes.
 
