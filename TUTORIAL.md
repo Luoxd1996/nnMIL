@@ -38,10 +38,10 @@ Each bundle contains:
 
 | Task ID | Cohort / Description | Feature link |
 | ------- | -------------------- | ------------ |
-| `Task001_CRC_DSS` | CRC DSS survival | [Google Drive](https://drive.google.com/drive/folders/1SiF379K70hWAPzq6TOKrwX8VX2DCDyJq?usp=sharing)|
-| `Task010_TCGA-BRCA` | TCGA BRCA classification with UNI embeddings | [Google Drive](https://drive.google.com/drive/folders/1gjL3Uhumk35YSkbz1TOFMzUBumZfSBGZ?usp=sharing) |
-| `Task002_EBRAINS_Fine` | EBRAINS coarse classification | [Google Drive](https://drive.google.com/file/d/16tpUS-o21WsQH1U3Jyqi4784sb-OceiB/view?usp=sharing) |
-| `Task002_EBRAINS_Coarse` | EBRAINS coarse classification | [Google Drive](https://drive.google.com/file/d/16tpUS-o21WsQH1U3Jyqi4784sb-OceiB/view?usp=sharing) |
+| `Task001_CRC_DSS` | CRC DSS survival (External evaluation, Virchow2) | [Google Drive](https://drive.google.com/drive/folders/1SiF379K70hWAPzq6TOKrwX8VX2DCDyJq?usp=sharing)|
+| `Task010_TCGA-BRCA` | BRCA DSS survival (5-fold, Virchow2)| [Google Drive](https://drive.google.com/drive/folders/1PVuRhnc_ObUn1aFRSiyk5_5vtWjoCeNv?usp=sharing) |
+| `Task002_EBRAINS_Fine` | EBRAINS coarse classification (official split, UNI) | [Google Drive](https://drive.google.com/file/d/16tpUS-o21WsQH1U3Jyqi4784sb-OceiB/view?usp=sharing) |
+| `Task002_EBRAINS_Coarse` | EBRAINS coarse classification  (official split, UNI) | [Google Drive](https://drive.google.com/file/d/16tpUS-o21WsQH1U3Jyqi4784sb-OceiB/view?usp=sharing) |
 
 ### Steps
 
