@@ -2,7 +2,7 @@
 
 A generalist multiple instance learning framework for computational pathology.
 
-- **Unified CLI** for classification, regression, and survival MIL tasks
+- **Unified pipeline** for classification, regression, and survival MIL tasks
 - **Plan-driven training** that inspects slide features, builds patient-level splits, and recommends hyper-parameters
 - **Model zoo** including attention-, transformer-, and dual-stream MIL variants
 - **Consistent inference utilities** for official or k-fold evaluation settings
