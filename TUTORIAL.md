@@ -49,13 +49,17 @@ Each bundle contains:
 2. Edit the `feature_dir` (and, if necessary, `clinical_dir`) paths in `dataset.json` so they point to the absolute locations on your machine.
 3. From the repository root (`/path/to/github/nnMIL`), run the workflow scripts located in `scripts/`, which already chain **planning → training → prediction**:
    ```bash
-   cd /path/to/github/nnMIL
+   cd /path/to/github/nnMIL/scripts
 
-   # Example: 5-fold classification on TCGA BRCA
-   bash scripts/run_classification.sh /path/to/nnMIL_raw_data/Task010_TCGA-BRCA simple_mil 0 auto
+   # Example: EBRAINS classification with official split, UNI
+   bash run_classification.sh # you can modify the default settings after you read this script
+
+   # Example: 5-fold BRCA DSS survival
+   bash run_survival.sh # you can modify the default settings after you read this script
 
    # Example: survival task on CRC DSS (official split)
-   bash scripts/run_survival.sh /path/to/nnMIL_raw_data/Task001_CRC_DSS simple_mil 0
+   CUDA_VISIBLE_DEVICES=0 python nnMIL/run/nnMIL_predict.py --plan_path nnMIL_raw_data/Task_001_CRC_DSS/dataset_plan.json --checkpoint_path nnMIL_results/Task_001_CRC_DSS/simple_mil/official_split/best_simple_mil.pth --input_dir /XXXX/SR386_WSIs/h5_files --output_dir nnMIL_results/Task_001_CRC_DSS/simple_mil/official_split_random/SR386_WSIs_test_best # Due to the license, we can not release the embedding of PLCO-CRC and MCO, but we have released the model for evaluation.
+   
    ```
    These scripts automatically call `nnMIL_plan_experiment.py`, `nnMIL_run_training.py`, and `nnMIL_predict.py` in sequence, writing outputs under `nnMIL_results/<Task_ID>/<model>/<split>/`.
 4. Reuse checkpoints immediately:
