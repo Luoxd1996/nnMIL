@@ -81,13 +81,12 @@ For detailed guidance (including how to adapt `dataset.json`/`dataset.csv` to yo
 
 All scripts assume the project root is the parent of `nnMIL/` and write outputs into `nnMIL_results/`.
 
-## Troubleshooting Cheatsheet
+## Acknowledgements
 
-- **Missing `dataset_plan.json`**: rerun the planner; trainers read configurations from that file.
-- **Label assertions (`t >= 0 && t < n_classes`)**: align `dataset.json` label definitions with the `label` column in `dataset.csv`. Adjust the CSV when switching to coarse labels.
-- **`torchvision::nms` operator not found**: reinstall torchvision that matches your torch build (see commands above).
-- **`numpy.dtype size changed` warning**: ensure `pandas` and `numpy` ABI versions match (e.g., `pandas 2.3.x` with `numpy 2.2.x`).
-- **Muon fallback messages**: set `optimizer` to `adamw` or ensure a model’s trainable tensors are all 2D+ when using `Muon`.
+We gratefully acknowledge prior work that inspired nnMIL:
+
+- [MIL_BASELINE](https://github.com/lingxitong/MIL_BASELINE) for its comprehensive collection of MIL models.
+- [nnUNet](https://github.com/MIC-DKFZ/nnUNet) for the self-configuring design principles that guided our training planner and workflow automation.
 
 ## Status & Contact
 
