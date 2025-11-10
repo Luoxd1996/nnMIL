@@ -58,7 +58,12 @@ Each bundle contains:
    bash run_survival.sh # you can modify the default settings after you read this script
 
    # Example: survival task on CRC DSS (official split)
-   CUDA_VISIBLE_DEVICES=0 python nnMIL/run/nnMIL_predict.py --plan_path nnMIL_raw_data/Task_001_CRC_DSS/dataset_plan.json --checkpoint_path nnMIL_results/Task_001_CRC_DSS/simple_mil/official_split/best_simple_mil.pth --input_dir /XXXX/SR386_WSIs/h5_files --output_dir nnMIL_results/Task_001_CRC_DSS/simple_mil/official_split_random/SR386_WSIs_test_best # Due to the license, we can not release the embedding of PLCO-CRC and MCO, but we have released the model for evaluation.
+   CUDA_VISIBLE_DEVICES=0 python nnMIL/run/nnMIL_predict.py \
+     --plan_path nnMIL_raw_data/Task_001_CRC_DSS/dataset_plan.json \
+     --checkpoint_path nnMIL_results/Task_001_CRC_DSS/simple_mil/official_split/best_simple_mil.pth \
+     --input_dir /XXXX/SR386_WSIs/h5_files \
+     --output_dir nnMIL_results/Task_001_CRC_DSS/simple_mil/official_split_random/SR386_WSIs_test_best \
+     # Due to the license, we can not release the embedding of PLCO-CRC and MCO, but we have released the model for evaluation.
    
    ```
    These scripts automatically call `nnMIL_plan_experiment.py`, `nnMIL_run_training.py`, and `nnMIL_predict.py` in sequence, writing outputs under `nnMIL_results/<Task_ID>/<model>/<split>/`.
