@@ -6,7 +6,7 @@ set -e
 
 DATASET_DIR=${1:-"/mnt/radonc-Li02_vol2/private/luoxd96/MIL/nnMIL_raw_data/Task003_EBRAINS_Fine"}
 MODEL_TYPE=${2:-"simple_mil"}
-CUDA_DEVICE=${3:-"2"}
+CUDA_DEVICE=${3:-"0"}
 
 export CUDA_VISIBLE_DEVICES=$CUDA_DEVICE
 

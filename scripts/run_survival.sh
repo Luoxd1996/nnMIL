@@ -6,7 +6,7 @@ set -e  # Exit on error
 
 # Default values
 DATASET_DIR=${1:-"/mnt/radonc-Li02_vol2/private/luoxd96/MIL/nnMIL_raw_data/Task010_TCGA-BRCA"}
-MODEL_TYPE=${2:-"ab_mil"}
+MODEL_TYPE=${2:-"simple_mil"}
 CUDA_DEVICE=${3:-"3"}
 
 # Set CUDA device
