@@ -1,4 +1,4 @@
-# nnMIL Tutorial
+# nnMIL (No-New Multiple Instance Learning) Tutorial
 
 This guide walks through the complete nnMIL workflow using the provided task layouts and shows how to adapt each step to your own dataset. It covers:
 
