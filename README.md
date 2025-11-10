@@ -2,523 +2,96 @@
 
 A generalist multiple instance learning framework for computational pathology.
 
-## Features
+- **Unified CLI** for classification, regression, and survival MIL tasks
+- **Plan-driven training** that inspects slide features, builds patient-level splits, and recommends hyper-parameters
+- **Model zoo** including attention-, transformer-, and dual-stream MIL variants
+- **Consistent inference utilities** for official or k-fold evaluation settings
 
-- **Unified Interface**: Single command-line interface for all tasks (classification, regression, survival)
-- **Configuration-Driven**: All hyperparameters loaded from plan files
-- **Automatic Path Resolution**: Automatically finds datasets, plans, and checkpoints
-- **Modular Design**: Follows nnUNet architecture principles
-- **Support for Multiple Tasks**: Classification, Regression, and Survival Analysis
-- **5-Fold Cross-Validation**: Built-in support for k-fold CV with patient-level stratification
+Looking for the full step-by-step walkthrough? Jump to [`TUTORIAL.md`](./TUTORIAL.md).
 
-## Directory Structure
+## Repository Layout
 
 ```
 nnMIL/
-├── __init__.py
-├── network_architecture/   # MIL model implementations
-│   ├── model_factory.py
-│   └── models/
-│       ├── simple_mil.py
-│       ├── ab_mil.py
-│       └── ...
-├── data/                   # Dataset handling
-│   ├── dataset.py          # UnifiedMILDataset
-│   └── archive/            # Archived loaders/utilities
-├── training/               # Training modules
-│   ├── trainers/           # Unified trainers
-│   │   ├── base_trainer.py
-│   │   ├── classification_trainer.py
-│   │   ├── regression_trainer.py
-│   │   ├── survival_trainer.py
-│   │   └── survival_porpoise_trainer.py
-│   ├── losses/             # Loss functions
-│   ├── samplers/           # Batch samplers
-│   └── callbacks/          # Callbacks (early stopping, etc.)
-├── inference/              # Inference engine
-│   ├── inference_engine.py
-│   └── predictors/         # Task-specific predictors
-├── preprocessing/          # Data preprocessing and experiment planning
-│   ├── experiment_planner.py
-│   └── generate_dataset_json.py
-├── run/                    # Command-line entry points
-│   ├── nnMIL_plan_experiment.py
-│   ├── nnMIL_run_training.py  # Unified training entry ⭐
-│   └── nnMIL_predict.py
-├── scripts/                # End-to-end workflow scripts (planning + training + inference)
-│   ├── run_classification.sh
-│   ├── run_survival.sh
-│   ├── run_plco_crc.sh
-│   └── ...
-└── utilities/               # Utility functions
-    ├── plan_loader.py
-    └── utils.py
+├── data/                    # Dataset abstractions
+├── network_architecture/    # Model factory + implementations
+├── preprocessing/           # Experiment planner & helpers
+├── run/                     # Python entry points (plan/train/predict)
+├── scripts/                 # Shell wrappers for complete workflows
+├── training/                # Trainers, losses, samplers, callbacks
+└── utilities/               # Shared utils (logging, configs, etc.)
 ```
 
-## Data & Results Layout
+Two external directories are expected beside the repo:
 
-- Raw datasets and generated plans live under `nnMIL_raw_data/`, e.g. `nnMIL_raw_data/Task001_CRC_DSS/dataset.json`, `dataset.csv`, `dataset_plan.json`.
-- Model checkpoints, logs, and prediction CSVs are stored in `nnMIL_results/`, organized by task/model/fold (for example `nnMIL_results/Task010_TCGA-BRCA/simple_mil/fold_0/`).
-- The `scripts/` directory contains ready-to-run bash workflows (classification, survival, PLCO CRC, etc.) that assume the above layout.
-- For convenience, snapshots of [`nnMIL_raw_data`](https://drive.google.com/drive/folders/1HF7jjH3FiWDIGCvvWBqD-3Z0Sgv8Dh-g?usp=sharing) with datasets & plans and [`nnMIL_results`](https://drive.google.com/drive/folders/1-DPqIUUy0oYFicGGdEuHzehrQQFyDoXI?usp=sharing) with logs/weights & results and are also available in Google Drive.
-  
-## Complete Workflow
+- `nnMIL_raw_data/TaskXXX_*` holds each task’s `dataset.json`, `dataset.csv`, generated `dataset_plan.json`, and HDF5 feature files.
+- `nnMIL_results/TaskXXX_*` receives logs, checkpoints, predictions, and metrics (`official_split/` or `fold_*` subfolders).
 
-The nnMIL workflow consists of three main steps:
+Reference bundles:
 
-1. **Planning**: Analyze dataset and generate training configuration
-2. **Training**: Train models with the generated configuration
-3. **Testing**: Evaluate trained models on test sets
+- [Datasets & plan files (`nnMIL_raw_data` snapshot)](https://drive.google.com/drive/folders/1HF7jjH3FiWDIGCvvWBqD-3Z0Sgv8Dh-g?usp=sharing)
+- [Experiment outputs (`nnMIL_results` snapshot)](https://drive.google.com/drive/folders/1-DPqIUUy0oYFicGGdEuHzehrQQFyDoXI?usp=sharing)
+- Precomputed features:
+  - [TCGA / UNI embeddings](https://drive.google.com/drive/folders/1gjL3Uhumk35YSkbz1TOFMzUBumZfSBGZ?usp=sharing)
+  - [Virchow2 embeddings](https://drive.google.com/drive/folders/1PVuRhnc_ObUn1aFRSiyk5_5vtWjoCeNv?usp=sharing)
+  - [EBRAINS features](https://drive.google.com/file/d/16tpUS-o21WsQH1U3Jyqi4784sb-OceiB/view?usp=sharing)
 
-## Quick Start
+## Environment & Dependencies
 
-The repository is organized around `nnMIL_raw_data/` (datasets + plans) and `nnMIL_results/` (training outputs). The end-to-end workflow is:
-
-1. Prepare `dataset.json` / `dataset.csv` under `nnMIL_raw_data/<Task_ID>/`.
-2. Generate a training plan (`dataset_plan.json`).
-3. Launch training (official split or k-fold).
-4. Run inference to produce predictions/metrics.
-
-### 1. Prepare or Inspect a Dataset
-
-Each dataset lives in `nnMIL_raw_data/<Task_ID>/`:
-
-```
-nnMIL_raw_data/Task001_CRC_DSS/
-├── dataset.json          # Metadata (task type, labels, feature path, metric, etc.)
-├── dataset.csv           # Slide/patient splits and labels or survival info
-└── dataset_plan.json     # Generated by the planner (step 2)
-```
-
-You can create a new task directory following the same structure. For example:
-
-```json
-{
-    "dataset_id": "Task999_MyStudy",
-    "dataset_name": "My Study",
-    "task_type": "survival",
-    "feature_dir": "/path/to/features",
-    "metric": "c_index",
-    "evaluation_setting": "5fold"
-}
-```
-
-The corresponding `dataset.csv` should contain at least `slide_id`, `patient_id`, and task-specific columns such as `label` (classification) or `event`/`time` (survival).
-
-### 2. Generate the Plan
-
+1. Install system packages for HDF5/BLAS as required by your platform.
+2. Create and activate the project environment (example using conda):
 ```bash
-python nnMIL/run/nnMIL_plan_experiment.py -d nnMIL_raw_data/Task001_CRC_DSS
-```
-
-The planner inspects the feature `.h5` files, builds patient-level folds, estimates hyper-parameters, and writes the plan back to `dataset_plan.json`.
-
-### 3. Train Models
-
+   conda env create -f environment.yml
+   conda activate pyrad
+   ```
+3. Install PyTorch 2.9 nightly and the matching torchvision build (CUDA 12.6 example):
 ```bash
-# Official split
-python nnMIL/run/nnMIL_run_training.py nnMIL_raw_data/Task001_CRC_DSS simple_mil None
+   pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/nightly/cu126
+   pip install --no-cache-dir torchvision --index-url https://download.pytorch.org/whl/nightly/cu126
+   ```
 
-# 5-fold cross-validation
-python nnMIL/run/nnMIL_run_training.py nnMIL_raw_data/Task001_CRC_DSS simple_mil all
-```
+## Quick Start (High Level)
 
-Outputs are written to `nnMIL_results/<Task_ID>/<model_type>/<split_or_fold>/`, including checkpoints, logs, and validation results.
-
-### 4. Run Inference / Evaluation
-
+1. **Prepare data** under `nnMIL_raw_data/<Task_ID>/` with:
+   - `dataset.json` (task metadata: labels, metrics, feature path)
+   - `dataset.csv` (slide/patient metadata, labels or survival fields)
+   - slide-level feature files (`<slide_id>.h5`)
+2. **Plan** the experiment:
 ```bash
-python nnMIL/run/nnMIL_predict.py \
-    --plan_path nnMIL_raw_data/Task001_CRC_DSS/dataset_plan.json \
-    --checkpoint_path nnMIL_results/Task001_CRC_DSS/simple_mil/official_split/best_simple_mil.pth \
-    --output_dir nnMIL_results/Task001_CRC_DSS/simple_mil/official_split/predictions
-```
-
-For k-fold setups, loop over the folds and point to the respective checkpoints, saving predictions back into each fold directory.
-
-### 5. Quick evaluation
-We also provide feature embeddings extracted from multiple cohorts for direct reuse: TCGA with [UNI embeddings](https://drive.google.com/drive/folders/1gjL3Uhumk35YSkbz1TOFMzUBumZfSBGZ?usp=sharing), [Virchow2 embeddings](https://drive.google.com/drive/folders/1PVuRhnc_ObUn1aFRSiyk5_5vtWjoCeNv?usp=sharing), [EBRAINS](https://drive.google.com/file/d/16tpUS-o21WsQH1U3Jyqi4784sb-OceiB/view?usp=sharing)
-
-
-## Complete Workflow Scripts
-
-### Classification Workflow
-
-Use the provided script:
-
+   python nnMIL/run/nnMIL_plan_experiment.py -d nnMIL_raw_data/Task001_CRC_DSS
+   ```
+   This produces `dataset_plan.json` with recommended hyper-parameters and patient splits.
+3. **Train**:
 ```bash
-bash nnMIL/scripts/run_classification.sh examples/Dataset001_classification simple_mil 0
-```
+   python nnMIL/run/nnMIL_run_training.py nnMIL_raw_data/Task001_CRC_DSS simple_mil all
+   ```
+   or use `bash nnMIL/scripts/run_classification.sh nnMIL_raw_data/Task001_CRC_DSS simple_mil 0 auto`.
+4. **Predict** with `nnMIL/run/nnMIL_predict.py`, pointing to each checkpoint directory.
 
-The script is located at: `nnMIL/scripts/run_classification.sh`
+For detailed guidance (including how to adapt `dataset.json`/`dataset.csv` to your own data), consult [`TUTORIAL.md`](./TUTORIAL.md).
 
-### Survival Analysis Workflow
+## Workflow Scripts
 
-Use the provided script:
+- `scripts/run_classification.sh <DATASET_DIR> <MODEL> <CUDA_DEVICE> [split]`  
+  Automates planning → training → prediction. `split` accepts `auto` (default), `all`, `None`, or a fold index.
+- `scripts/run_survival.sh <DATASET_DIR> <MODEL> <CUDA_DEVICE>`  
+  Equivalent wrapper tailored for survival experiments.
+- `scripts/run_plco_crc.sh`  
+  End-to-end recipe for the PLCO CRC cohort.
 
-```bash
-bash nnMIL/scripts/run_survival.sh examples/Dataset002_survival simple_mil 0
-```
+All scripts assume the project root is the parent of `nnMIL/` and write outputs into `nnMIL_results/`.
 
-The script is located at: `nnMIL/scripts/run_survival.sh`
+## Troubleshooting Cheatsheet
 
-## Tutorial
+- **Missing `dataset_plan.json`**: rerun the planner; trainers read configurations from that file.
+- **Label assertions (`t >= 0 && t < n_classes`)**: align `dataset.json` label definitions with the `label` column in `dataset.csv`. Adjust the CSV when switching to coarse labels.
+- **`torchvision::nms` operator not found**: reinstall torchvision that matches your torch build (see commands above).
+- **`numpy.dtype size changed` warning**: ensure `pandas` and `numpy` ABI versions match (e.g., `pandas 2.3.x` with `numpy 2.2.x`).
+- **Muon fallback messages**: set `optimizer` to `adamw` or ensure a model’s trainable tensors are all 2D+ when using `Muon`.
 
-This tutorial will walk you through a complete workflow for both classification and survival analysis tasks.
+## Status & Contact
 
-### Tutorial 1: Classification Task
+nnMIL is actively evolving—expect iterative updates to the planner, trainers, and evaluation scripts. Feedback and contributions are welcome. Reach out at `luoxd96@stanford.edu`.
 
-#### Step 1: Prepare Your Dataset
-
-Create a dataset directory structure:
-
-```bash
-mkdir -p examples/MyClassificationDataset
-```
-
-**Create `examples/MyClassificationDataset/dataset.json`:**
-```json
-{
-    "dataset_id": "MyClassificationDataset",
-    "dataset_name": "My Binary Classification Dataset",
-    "task_type": "classification",
-    "labels": [0, 1],
-    "feature_dir": "/path/to/your/features",
-    "metric": "auc",
-    "evaluation_setting": "5fold"
-}
-```
-
-**Create `examples/MyClassificationDataset/dataset.csv`:**
-```csv
-slide_id,patient_id,split,label
-slide_001,patient_001,train,0
-slide_002,patient_002,train,1
-slide_003,patient_003,train,0
-slide_004,patient_004,val,1
-slide_005,patient_005,val,0
-slide_006,patient_006,test,1
-```
-
-**Important Notes:**
-- `feature_dir`: Path to directory containing H5 feature files (e.g., `slide_001.h5`, `slide_002.h5`)
-- For 5-fold CV, you can use any split column or leave it empty; the planner will create folds
-- Feature files should be named as `{slide_id}.h5` and contain `features` array with shape `(n_patches, feature_dim)`
-
-#### Step 2: Run Planning
-
-Generate the training plan:
-
-```bash
-python nnMIL/run/nnMIL_plan_experiment.py -d examples/MyClassificationDataset --seed 42
-```
-
-**What happens:**
-1. Scans all H5 files in `feature_dir`
-2. Calculates patch count statistics (min, max, mean, median, percentiles)
-3. Recommends `max_seq_length` (typically median * 0.5)
-4. Creates patient-level, stratified data splits (5 folds or official split)
-5. Generates training configuration (batch size, learning rate, etc.)
-
-**Output:** `examples/MyClassificationDataset/dataset_plan.json`
-
-You can inspect the plan file to see:
-- Feature statistics
-- Data splits (patient IDs and slide IDs for each fold)
-- Recommended training hyperparameters
-
-#### Step 3: Train Models
-
-**Option A: Train all folds (5-fold CV)**
-
-```bash
-python nnMIL/run/nnMIL_run_training.py examples/MyClassificationDataset simple_mil all
-```
-
-This will train 5 models (fold_0 to fold_4) sequentially.
-
-**Option B: Train a single fold**
-
-```bash
-python nnMIL/run/nnMIL_run_training.py examples/MyClassificationDataset simple_mil 0
-```
-
-**Option C: Use the workflow script**
-
-```bash
-bash nnMIL/scripts/run_classification.sh examples/MyClassificationDataset simple_mil 0
-```
-
-This runs planning, training, and testing automatically.
-
-**Training Output Structure:**
-```
-nnMIL_results/MyClassificationDataset/simple_mil/
-├── fold_0/
-│   ├── best_simple_mil.pth          # Best model checkpoint
-│   ├── training_config.json          # Training configuration used
-│   ├── simple_mil_training.log      # Training log
-│   └── results_simple_mil.csv       # Validation/test results
-├── fold_1/
-├── ...
-└── fold_4/
-```
-
-#### Step 4: Evaluate Models
-
-**For a single fold:**
-
-```bash
-python nnMIL/run/nnMIL_predict.py \
-    --plan_path examples/MyClassificationDataset/dataset_plan.json \
-    --checkpoint_path nnMIL_results/MyClassificationDataset/simple_mil/fold_0/best_simple_mil.pth \
-    --output_dir nnMIL_results/MyClassificationDataset/simple_mil/fold_0/predictions \
-    --fold 0
-```
-
-**For all folds:**
-
-```bash
-for FOLD in 0 1 2 3 4; do
-    python nnMIL/run/nnMIL_predict.py \
-        --plan_path examples/MyClassificationDataset/dataset_plan.json \
-        --checkpoint_path nnMIL_results/MyClassificationDataset/simple_mil/fold_${FOLD}/best_simple_mil.pth \
-        --output_dir nnMIL_results/MyClassificationDataset/simple_mil/fold_${FOLD}/predictions \
-        --fold ${FOLD}
-done
-```
-
-**Output:** CSV files with predictions for each sample:
-- `slide_id`, `patient_id`, `prediction`, `probability_class_0`, `probability_class_1`, `label`
-
-### Tutorial 2: Survival Analysis Task
-
-#### Step 1: Prepare Your Dataset
-
-**Create `examples/MySurvivalDataset/dataset.json`:**
-```json
-{
-    "dataset_id": "MySurvivalDataset",
-    "dataset_name": "My Survival Analysis Dataset",
-    "task_type": "survival",
-    "feature_dir": "/path/to/your/features",
-    "metric": "c_index",
-    "evaluation_setting": "5fold"
-}
-```
-
-**Create `examples/MySurvivalDataset/dataset.csv`:**
-```csv
-slide_id,patient_id,split,event,time
-slide_001,patient_001,train,1,45.2
-slide_002,patient_002,train,0,60.5
-slide_003,patient_003,train,1,30.1
-slide_004,patient_004,val,1,50.0
-slide_005,patient_005,val,0,72.3
-slide_006,patient_006,test,1,25.8
-```
-
-**Important Notes:**
-- `event`: 1 for event occurred, 0 for censored
-- `time`: Survival time (months, days, etc.)
-- Same patient can have multiple slides (all with same event/time)
-
-#### Step 2: Run Planning
-
-```bash
-python nnMIL/run/nnMIL_plan_experiment.py -d examples/MySurvivalDataset --seed 42
-```
-
-The planner will:
-- Analyze feature files
-- Create patient-level splits stratified by event status
-- Determine appropriate batch size (may be set to 1 for survival tasks, which uses NLLSurvLoss)
-
-#### Step 3: Train Models
-
-**Using the workflow script (recommended):**
-
-```bash
-bash nnMIL/scripts/run_survival.sh examples/MySurvivalDataset simple_mil 0
-```
-
-**Or manually:**
-
-```bash
-# Training
-python nnMIL/run/nnMIL_run_training.py examples/MySurvivalDataset simple_mil all
-
-# Testing
-PLAN_FILE="examples/MySurvivalDataset/dataset_plan.json"
-for FOLD in 0 1 2 3 4; do
-    python nnMIL/run/nnMIL_predict.py \
-        --plan_path $PLAN_FILE \
-        --checkpoint_path nnMIL_results/MySurvivalDataset/simple_mil/fold_${FOLD}/best_simple_mil.pth \
-        --output_dir nnMIL_results/MySurvivalDataset/simple_mil/fold_${FOLD}/predictions \
-        --fold ${FOLD}
-done
-```
-
-#### Step 4: Evaluate Models
-
-The prediction output includes:
-- `slide_id`, `patient_id`, `risk_score`, `event`, `time`
-
-Risk scores can be aggregated at patient level (e.g., mean) for C-index calculation.
-
-### Common Customizations
-
-#### Override Plan Hyperparameters
-
-```bash
-python nnMIL/run/nnMIL_run_training.py examples/MyClassificationDataset simple_mil 0 \
-    --batch_size 64 \
-    --learning_rate 1e-3 \
-    --num_epochs 200 \
-    --weight_decay 1e-4
-```
-
-#### Use Different Models
-
-Available models: `simple_mil`, `ab_mil`, `ds_mil`, `trans_mil`, `wikg_mil`, etc.
-
-```bash
-python nnMIL/run/nnMIL_run_training.py examples/MyClassificationDataset ab_mil all
-```
-
-#### Official Split Instead of 5-Fold CV
-
-Set `"evaluation_setting": "official_split"` in `dataset.json`, then:
-
-```bash
-python nnMIL/run/nnMIL_run_training.py examples/MyClassificationDataset simple_mil None
-```
-
-#### Select GPU
-
-```bash
-CUDA_VISIBLE_DEVICES=0 bash nnMIL/scripts/run_classification.sh examples/MyClassificationDataset simple_mil 0
-```
-
-### Expected Output Examples
-
-**Training Log (excerpt):**
-```
-2025-11-02 10:00:00 - INFO - Epoch 1/100 - Loss: 0.6234
-2025-11-02 10:00:30 - INFO - Val AUC: 0.7234
-2025-11-02 10:00:30 - INFO - Validation AUC improved (0.7234). Saving model...
-...
-2025-11-02 10:15:00 - INFO - Early stopping triggered at epoch 45
-```
-
-**Results CSV (Classification):**
-```csv
-slide_id,patient_id,prediction,probability_class_0,probability_class_1,label
-slide_001,patient_001,1,0.123,0.877,1
-slide_002,patient_002,0,0.891,0.109,0
-```
-
-**Results CSV (Survival):**
-```csv
-slide_id,patient_id,risk_score,status,time
-slide_001,patient_001,2.345,1,45.2
-slide_002,patient_002,1.234,0,60.5
-```
-
-### Next Steps
-
-- Compare multiple models: Use `compare_cv_results.py` to compare 5-fold CV results
-- Ensemble predictions: Average predictions across folds
-- Patient-level aggregation: For tasks with multiple slides per patient
-- Hyperparameter tuning: Modify plan file or override via command line
-
-## Key Concepts
-
-### Plan Files (`dataset_plan.json`)
-
-The plan file contains:
-- **Dataset Information**: Task type, labels, feature dimensions
-- **Feature Statistics**: Patch count statistics, recommended `max_seq_length`
-- **Data Splits**: Patient-level splits for train/val/test
-- **Training Configuration**: Batch size, learning rate, epochs, batch sampler, etc.
-
-### Model Types
-
-- `simple_mil`: Simple MIL with attention
-- `ab_mil`: Attention-based MIL
-- `ds_mil`: Dual-stream MIL
-- `trans_mil`: Transformer-based MIL
-- And more...
-
-### Batch Samplers
-
-Automatically selected based on task and metric:
-- `risk_set`: For survival C-index (ensures batches have events)
-- `auc`: For AUC metric (balanced positive/negative pairs)
-- `balanced`: For BACC/F1 metrics (balanced classes)
-- `random`: Default random sampling
-
-### Patch Selection Strategy
-
-- **Training**: Random selection up to `max_seq_length` for data augmentation
-- **Validation/Testing**: Always use all original patches (no truncation)
-- **Original Length Training**: 10% random drop for data augmentation
-
-## Configuration Override
-
-You can override plan configurations via command-line arguments:
-
-```bash
-python nnMIL/run/nnMIL_run_training.py examples/Dataset001_classification simple_mil 0 \
-    --batch_size 64 \
-    --learning_rate 1e-3 \
-    --num_epochs 200
-```
-
-## Output Structure
-
-```
-nnMIL_results/
-└── Dataset001_classification/
-    └── simple_mil/
-        ├── fold_0/
-        │   ├── best_simple_mil.pth
-        │   ├── training_config.json
-        │   ├── simple_mil_training.log
-        │   ├── results_simple_mil.csv
-        │   └── predictions/
-        │       └── results_simple_mil.csv
-        ├── fold_1/
-        ├── ...
-        └── fold_4/
-```
-
-## Notes
-
-1. **Always run planning first**: The plan file is required for training
-2. **Patient-level splitting**: All splits are done at the patient level to avoid data leakage
-3. **Stratified splitting**: Splits maintain class/event distribution
-4. **Reproducibility**: Random seeds are set for reproducibility (default: 42)
-5. **CUDA Device Selection**: Use `CUDA_VISIBLE_DEVICES` environment variable to select GPUs
-
-## Troubleshooting
-
-### Plan file not found
-- Ensure you've run `nnMIL_plan_experiment.py` first
-- Check that `dataset_plan.json` exists in the dataset directory
-
-### Out of memory errors
-- Reduce `batch_size` in the plan file or via command-line
-- Reduce `max_seq_length` in the plan file
-
-### No validation improvement
-- Check if `patience` is set appropriately
-- Verify data splits are correct
-- Check early stopping metric matches your task
-
-## Acknowledgement
-
-- We would like to thank the [MIL_BASELINE](https://github.com/lingxitong/MIL_BASELINE) project for providing a comprehensive collection of MIL models. We also sincerely appreciate the [nnUNet](https://github.com/MIC-DKFZ/nnUNet) framework, which has greatly inspired and supported our work. 
-
-- Work in progress, we will provide more details and examples in the future. Questions or collaboration ideas, please reach out at luoxd96 at stanford dot edu.
+👉 A comprehensive tutorial (classification + survival, custom dataset adaptation, shell scripts) is maintained in [`TUTORIAL.md`](./TUTORIAL.md) and updated alongside code changes.
 

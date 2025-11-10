@@ -39,25 +39,6 @@ python nnMIL/run/nnMIL_run_training.py $DATASET_DIR $MODEL_TYPE all
 echo "✅ Training complete"
 echo ""
 
-# Step 3: Testing
-echo "Step 3/3: Testing..."
-PLAN_FILE="$DATASET_DIR/dataset_plan.json"
-for FOLD in 0 1 2 3 4; do
-    CHECKPOINT="nnMIL_results/$(basename $DATASET_DIR)/$MODEL_TYPE/fold_${FOLD}/best_${MODEL_TYPE}.pth"
-    OUTPUT_DIR="nnMIL_results/$(basename $DATASET_DIR)/$MODEL_TYPE/fold_${FOLD}/predictions"
-    
-    if [ -f "$CHECKPOINT" ]; then
-        echo "  Fold $FOLD: Predicting..."
-        python nnMIL/run/nnMIL_predict.py \
-            --plan_path $PLAN_FILE \
-            --checkpoint_path $CHECKPOINT \
-            --output_dir $OUTPUT_DIR \
-            --fold $FOLD
-        echo "  ✅ Fold $FOLD complete"
-    fi
-done
-echo "✅ Testing complete"
-echo ""
 echo "=========================================="
 echo "✅ All done!"
 echo "=========================================="
