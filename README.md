@@ -87,6 +87,7 @@ We gratefully acknowledge prior work that inspired nnMIL:
 
 - [MIL_BASELINE](https://github.com/lingxitong/MIL_BASELINE) for its comprehensive collection of MIL models.
 - [nnUNet](https://github.com/MIC-DKFZ/nnUNet) for the self-configuring design principles that guided our training planner and workflow automation.
+For feature extraction, we recommend using the amazing project [CLAM](https://github.com/mahmoodlab/CLAM).
 
 ## Status & Contact
 
