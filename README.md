@@ -1,6 +1,6 @@
 # nnMIL: No-New Multiple Instance Learning
 
-A generalist multiple instance learning framework for computational pathology.
+nnMIL: A simple yet generalizable multiple instance learning framework for computational pathology
 
 - **Don’t reinvent complex MIL architectures** optimizing the training strategy is all we need
 - **Unified pipeline** for classification, regression, and survival MIL tasks
