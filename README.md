@@ -2,7 +2,7 @@
 
 nnMIL: A simple yet generalizable multiple instance learning framework for computational pathology
 
-- **Don’t reinvent complex MIL architectures** optimizing the training strategy is all we need
+- **Simple vs complex MIL architectures** optimizing training strategies yields benefits in the foundation model era
 - **Unified pipeline** for classification, regression, and survival MIL tasks
 - **Plan-driven training** that inspects slide features, builds patient-level splits, and recommends hyper-parameters
 - **Consistent inference utilities** for official or k-fold evaluation settings
