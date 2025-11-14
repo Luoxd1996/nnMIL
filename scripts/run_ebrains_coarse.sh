@@ -4,9 +4,9 @@
 
 set -e
 
-DATASET_DIR=${1:-"/mnt/radonc-Li02_vol2/private/luoxd96/MIL/nnMIL_raw_data/Task004_BRACS_Fine"}
+DATASET_DIR=${1:-"/mnt/radonc-Li02_vol2/private/luoxd96/MIL/github/nnMIL_raw_data/Task002_EBRAINS_Coarse"}
 MODEL_TYPE=${2:-"simple_mil"}
-CUDA_DEVICE=${3:-"3"}
+CUDA_DEVICE=${3:-"1"}
 
 export CUDA_VISIBLE_DEVICES=$CUDA_DEVICE
 
@@ -39,7 +39,6 @@ python nnMIL/run/nnMIL_run_training.py $DATASET_DIR $MODEL_TYPE all
 echo "✅ Training complete"
 echo ""
 
-echo ""
 echo "=========================================="
 echo "✅ All done!"
 echo "=========================================="

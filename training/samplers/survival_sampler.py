@@ -213,69 +213,179 @@ class StratifiedSurvivalSampler(torch.utils.data.Sampler):
 
 
 class RiskSetBatchSampler(torch.utils.data.Sampler):
-    def __init__(self, dataset, batch_size, min_events=2, overlap=0, shuffle_within=True, seed=None):
+    """
+    A batch sampler that builds batches enriched with comparable (event, at-risk) pairs
+    but fixes the number of batches per epoch to len(dataset) // batch_size.
+    """
+
+    def __init__(self, dataset, batch_size, shuffle_within=True, seed=None):
         self.dataset = dataset
-        self.batch_size = batch_size
-        self.min_events = min_events
-        self.overlap = overlap
+        self.batch_size = int(batch_size)
         self.shuffle_within = shuffle_within
         self.seed = seed
 
-        # Extract time and status
-        times, status = [], []
+        # -------- 1) Extract status and time --------
+        self.status = []
+        self.time = []
+
         for i in range(len(dataset)):
-            # Survival dataset returns: features, coords, bag_size, status, time, patient_id, slide_id (7 items)
             item = dataset[i]
             if len(item) == 7:
-                _, _, _, s, t, _, _ = item
-            elif len(item) == 6:
-                # Old format without slide_id
-                _, _, _, s, t, _ = item
+                _, _, _, status, t, _, _ = item
             else:
-                raise ValueError(f"Unexpected dataset item length: {len(item)}")
-            times.append(float(t))
-            status.append(int(s))
-        times = np.asarray(times); status = np.asarray(status)
+                _, _, _, status, t, _ = item
 
-        # Sort by time in descending order
-        self.order = np.argsort(-times, kind='mergesort')
-        self.times = times[self.order]
-        self.status = status[self.order]
+            status = int(status.item() if hasattr(status, "item") else status)
+            t = float(t.item() if hasattr(t, "item") else t)
 
-        # Pre-generate batch start positions
-        step = self.batch_size - self.overlap
-        self.starts = list(range(0, len(self.order), step))
+            self.status.append(status)
+            self.time.append(t)
+
+        self.status = np.asarray(self.status, dtype=np.int64)
+        self.time = np.asarray(self.time, dtype=np.float64)
+        self.n = len(self.status)
+
+        # -------- 2) Build pairs --------
+        self.max_pairs_per_event = 20
+        self.pairs = self._build_pairs()
+
+        # -------- 3) FIXED number of batches per epoch --------
+        self.num_batches = max(1, self.n // self.batch_size)
+
+        print(f"RiskSetBatchSampler: built {len(self.pairs)} comparable pairs from {self.n} samples")
+        print(f"Fixed epoch batches = {self.num_batches}, batch size={self.batch_size}")
+
+    def _build_pairs(self):
+        pairs = []
+        event_indices = np.where(self.status == 1)[0]
+        rng = np.random.RandomState(self.seed)
+
+        for i in event_indices:
+            t_i = self.time[i]
+            mask = self.time >= t_i
+            js = np.where(mask)[0]
+            js = js[js != i]
+
+            if len(js) == 0:
+                continue
+
+            if len(js) > self.max_pairs_per_event:
+                js = rng.choice(js, size=self.max_pairs_per_event, replace=False)
+
+            for j in js:
+                pairs.append((int(i), int(j)))
+
+        return pairs
 
     def __iter__(self):
-        rng = np.random.default_rng(self.seed) if self.seed is not None else np.random.default_rng()
-        batches = []
-        n = len(self.order)
+        # Shuffle pairs each epoch
+        pairs = np.array(self.pairs)
+        if self.shuffle_within:
+            if self.seed is not None:
+                np.random.seed(self.seed)
+            np.random.shuffle(pairs)
 
-        for s in self.starts:
-            e = min(s + self.batch_size, n)
-            idx = self.order[s:e]
-            # Ensure at least min_events events; extend backward (earlier time) if needed
-            extra_ptr = e
-            while (self.status[idx].sum() < self.min_events) and (extra_ptr < n):
-                take = min(self.min_events - self.status[idx].sum(), n - extra_ptr)
-                extra = self.order[extra_ptr: extra_ptr + take]
-                idx = np.concatenate([idx, extra], axis=0)
-                extra_ptr += take
-                if len(idx) >= self.batch_size:
-                    break
-            # Truncate to batch_size if exceeded
-            if len(idx) > self.batch_size:
-                idx = idx[:self.batch_size]
+        batch = []
+        used_idx = set()
 
-            # Light shuffle within window (no cross-window shuffle, preserves time structure)
-            if self.shuffle_within:
-                rng.shuffle(idx)
+        ptr = 0
+        n_pairs = len(pairs)
+        batches_yielded = 0
 
-            batches.append(idx.tolist())
+        # Fixed-number-of-batches loop
+        while batches_yielded < self.num_batches:
+            # Pair pointer wrap-around
+            if ptr >= n_pairs:
+                ptr = 0
+                if self.shuffle_within:
+                    np.random.shuffle(pairs)
 
-        # Light shuffle of batch order (optional)
-        rng.shuffle(batches)
-        return iter(batches)
+            i, j = pairs[ptr]
+            ptr += 1
+
+            for idx in (i, j):
+                if idx not in used_idx:
+                    batch.append(idx)
+                    used_idx.add(idx)
+
+                    if len(batch) >= self.batch_size:
+                        yield batch[:self.batch_size]
+                        batch = []
+                        used_idx.clear()
+                        batches_yielded += 1
+                        break  # end current batch
+
+        # (No leftover batch yielded, because epoch length is fixed)
 
     def __len__(self):
-        return len(self.starts)
+        return self.num_batches
+
+
+
+# class RiskSetBatchSampler(torch.utils.data.Sampler):
+#     def __init__(self, dataset, batch_size, min_events=2, overlap=0, shuffle_within=True, seed=None):
+#         self.dataset = dataset
+#         self.batch_size = batch_size
+#         self.min_events = min_events
+#         self.overlap = overlap
+#         self.shuffle_within = shuffle_within
+#         self.seed = seed
+
+#         # Extract time and status
+#         times, status = [], []
+#         for i in range(len(dataset)):
+#             # Survival dataset returns: features, coords, bag_size, status, time, patient_id, slide_id (7 items)
+#             item = dataset[i]
+#             if len(item) == 7:
+#                 _, _, _, s, t, _, _ = item
+#             elif len(item) == 6:
+#                 # Old format without slide_id
+#                 _, _, _, s, t, _ = item
+#             else:
+#                 raise ValueError(f"Unexpected dataset item length: {len(item)}")
+#             times.append(float(t))
+#             status.append(int(s))
+#         times = np.asarray(times); status = np.asarray(status)
+
+#         # Sort by time in descending order
+#         self.order = np.argsort(-times, kind='mergesort')
+#         self.times = times[self.order]
+#         self.status = status[self.order]
+
+#         # Pre-generate batch start positions
+#         step = self.batch_size - self.overlap
+#         self.starts = list(range(0, len(self.order), step))
+
+#     def __iter__(self):
+#         rng = np.random.default_rng(self.seed) if self.seed is not None else np.random.default_rng()
+#         batches = []
+#         n = len(self.order)
+
+#         for s in self.starts:
+#             e = min(s + self.batch_size, n)
+#             idx = self.order[s:e]
+#             # Ensure at least min_events events; extend backward (earlier time) if needed
+#             extra_ptr = e
+#             while (self.status[idx].sum() < self.min_events) and (extra_ptr < n):
+#                 take = min(self.min_events - self.status[idx].sum(), n - extra_ptr)
+#                 extra = self.order[extra_ptr: extra_ptr + take]
+#                 idx = np.concatenate([idx, extra], axis=0)
+#                 extra_ptr += take
+#                 if len(idx) >= self.batch_size:
+#                     break
+#             # Truncate to batch_size if exceeded
+#             if len(idx) > self.batch_size:
+#                 idx = idx[:self.batch_size]
+
+#             # Light shuffle within window (no cross-window shuffle, preserves time structure)
+#             if self.shuffle_within:
+#                 rng.shuffle(idx)
+
+#             batches.append(idx.tolist())
+
+#         # Light shuffle of batch order (optional)
+#         rng.shuffle(batches)
+#         return iter(batches)
+
+#     def __len__(self):
+#         return len(self.starts)

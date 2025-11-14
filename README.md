@@ -2,7 +2,7 @@
 
 A generalist multiple instance learning framework for computational pathology.
 
-- **Don't design fancy MIL again** training strategy optimize is all we need
+- **Don’t reinvent complex MIL architectures** optimizing the training strategy is all we need
 - **Unified pipeline** for classification, regression, and survival MIL tasks
 - **Plan-driven training** that inspects slide features, builds patient-level splits, and recommends hyper-parameters
 - **Consistent inference utilities** for official or k-fold evaluation settings

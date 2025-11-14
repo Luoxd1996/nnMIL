@@ -4,9 +4,9 @@
 
 set -e
 
-DATASET_DIR=${1:-"/mnt/radonc-Li02_vol2/private/luoxd96/MIL/nnMIL_raw_data/Task004_BRACS_Fine"}
+DATASET_DIR=${1:-"/mnt/radonc-Li02_vol2/private/luoxd96/MIL/github/nnMIL_raw_data/Task014_PANDA"}
 MODEL_TYPE=${2:-"simple_mil"}
-CUDA_DEVICE=${3:-"3"}
+CUDA_DEVICE=${3:-"2"}
 
 export CUDA_VISIBLE_DEVICES=$CUDA_DEVICE
 

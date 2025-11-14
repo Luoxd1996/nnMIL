@@ -575,15 +575,89 @@ class ExperimentPlanner:
         recommended_max_seq_length = feature_stats['recommended_max_seq_length']
         feature_dimension = feature_stats['feature_dimension']
         
-        # Estimate batch size based on sequence length
-        if recommended_max_seq_length < 5000:
-            batch_size = 32
-        elif recommended_max_seq_length < 10000:
-            batch_size = 16
+        # Set hidden_dim to 1/4 of feature_dimension
+        if self.task_type == 'survival':
+            hidden_dim = 256
         else:
-            batch_size = 8
+            hidden_dim = max(256, feature_dimension // 4)  # Minimum 256 for stability
+        print(f"Hidden dimension: {hidden_dim} (feature_dim={feature_dimension}, ratio=1/4)")
         
-        # Determine batch_sampler based on metric
+        # Get training dataset size for batch size calculation
+        if self.evaluation_setting == '5fold':
+            # For 5-fold CV, estimate from total dataset (80% for training)
+            # We'll use a conservative estimate: total samples * 0.8
+            num_train_samples = int(len(self.df) * 0.8)
+        else:
+            # For official splits, count actual train samples
+            if 'split' in self.df.columns:
+                num_train_samples = len(self.df[self.df['split'] == 'train'])
+            else:
+                # Fallback: estimate from total
+                num_train_samples = int(len(self.df) * 0.8)
+        
+        # Calculate batch size based on three constraints:
+        # 1. Minority visibility (2-4 samples per batch in expectation)
+        # 2. Stability-variance balance (16-48)
+        # 3. Dataset size scaling
+        
+        batch_size_candidates = []
+        
+        # Constraint 1: Minority visibility
+        if self.task_type == 'classification':
+            # Get rarest class proportion
+            if 'label' in self.df.columns:
+                label_counts = self.df['label'].value_counts()
+                p_rare = label_counts.min() / len(self.df)
+                # Need k=2-4 samples from rarest class per batch
+                batch_size_minority = int(3 / p_rare)  # Use k=3 as middle ground
+                batch_size_candidates.append(batch_size_minority)
+        elif self.task_type == 'survival':
+            # Get event rate
+            if 'event' in self.df.columns:
+                event_rate = self.df['event'].mean()
+                p_rare = min(event_rate, 1 - event_rate)  # Minority is rarer of event/non-event
+                # Need k=2-4 events per batch in expectation
+                batch_size_minority = int(3 / p_rare)  # Use k=3 as middle ground
+                batch_size_candidates.append(batch_size_minority)
+        
+        # Constraint 2: Stability-variance balance (16-48)
+        batch_size_candidates.append(16)  # Minimum for stability
+        batch_size_candidates.append(48)  # Maximum for stochasticity
+        
+        # Constraint 3: Dataset size scaling
+        if num_train_samples < 200:
+            batch_size_candidates.append(16)
+        elif num_train_samples <= 800:
+            batch_size_candidates.append(24)
+            batch_size_candidates.append(32)
+        else:
+            batch_size_candidates.append(32)
+            batch_size_candidates.append(48)
+        
+        # Select batch size: take the intersection of all constraints
+        # Priority: dataset size scaling > stability > minority visibility
+        if num_train_samples < 200:
+            batch_size = 16
+        elif num_train_samples <= 800:
+            # Try 24 or 32, but ensure it's within [16, 48]
+            batch_size = 24 if num_train_samples < 400 else 32
+        else:
+            batch_size = 32
+        
+        # Apply minority visibility constraint (if calculated)
+        if batch_size_candidates and len(batch_size_candidates) > 0:
+            minority_constraint = [bs for bs in batch_size_candidates if 16 <= bs <= 48]
+            if minority_constraint:
+                # If minority constraint requires larger batch, use it (but cap at 48)
+                min_minority = min(minority_constraint)
+                if min_minority > batch_size:
+                    batch_size = min(min_minority, 48)
+        
+        # Final constraint: ensure batch_size is in [16, 48]
+        batch_size = max(16, min(48, batch_size))
+        print(f"Batch size: {batch_size} (train_samples={num_train_samples}, constraints: dataset_size_scaling + minority_visibility + stability)")
+        
+        # Determine batch_sampler based on task type and metric
         metric = self.dataset_info.get('metric', 'bacc').lower()
         
         if self.task_type == 'survival':
@@ -591,7 +665,7 @@ class ExperimentPlanner:
             batch_sampler = None  # None means use DataLoader's default random shuffle
             learning_rate = 1e-4  # Survival tasks use 1e-4
         else:
-            # For classification/regression tasks
+            # For classification/regression tasks, use original logic
             if 'auc' in metric:
                 batch_sampler = 'auc'  # AUC-friendly sampler
             elif metric in ['bacc', 'balanced_accuracy', 'f1', 'f1_score']:
@@ -600,20 +674,37 @@ class ExperimentPlanner:
                 batch_sampler = 'random'  # Default random sampler
             learning_rate = 3e-4  # Classification/regression tasks use 3e-4
         
+        # Adaptive weight decay based on hidden_dim
+        # Larger models need stronger regularization
+        if hidden_dim >= 512:
+            weight_decay = 0.01  # Stronger regularization for large models
+        else:
+            weight_decay = 1e-4  # Standard regularization for smaller models
+        
+        # Adaptive warmup epochs based on dataset size
+        # Smaller datasets need longer warmup for stability
+        if num_train_samples < 500:
+            warmup_epochs = 10  # Longer warmup for small datasets
+        else:
+            warmup_epochs = 5  # Standard warmup
+        
         config = {
             "feature_dimension": feature_dimension,
-            "hidden_dim": 256,  # Fixed hidden dimension
+            "hidden_dim": hidden_dim,  # Set to feature_dimension / 4
             "max_seq_length": recommended_max_seq_length,
             "use_original_length": False,
             "batch_size": batch_size,
             "batch_sampler": batch_sampler,
             "learning_rate": learning_rate,
-            "weight_decay": 1e-4,
+            "weight_decay": weight_decay,  # Adaptive weight decay
             "num_epochs": 100,
-            "warmup_epochs": 5,  # Warmup epochs
+            "warmup_epochs": warmup_epochs,  # Adaptive warmup epochs
             "dropout": 0.25,  # Model dropout rate
             "patience": 10,  # Early stopping patience
         }
+        
+        print(f"Weight decay: {weight_decay} (hidden_dim={hidden_dim})")
+        print(f"Warmup epochs: {warmup_epochs} (train_samples={num_train_samples})")
         
         # Add num_classes for classification tasks (from labels)
         if self.task_type == 'classification' and 'labels' in self.dataset_info:
@@ -633,12 +724,13 @@ class ExperimentPlanner:
         
         return config
     
-    def plan_experiment(self, output_path: Optional[str] = None) -> Dict:
+    def plan_experiment(self, output_path: Optional[str] = None, preserve_splits: bool = True) -> Dict:
         """
         Main planning function.
         
         Args:
             output_path: Path to save plan file. If None, saves to dataset_dir/dataset_plan.json
+            preserve_splits: If True and plan file exists, preserve existing data_splits and only update training_config
         
         Returns:
             Dictionary containing the complete plan
@@ -647,11 +739,33 @@ class ExperimentPlanner:
         print(f"Task type: {self.task_type}")
         print(f"Evaluation setting: {self.evaluation_setting}\n")
         
+        # Determine output path
+        if output_path is None:
+            output_path = self.dataset_dir / "dataset_plan.json"
+        else:
+            output_path = Path(output_path)
+        
         # 1. Analyze features
         feature_stats = self.analyze_features()
         
-        # 2. Create data splits
-        data_splits = self.create_data_splits()
+        # 2. Handle data splits: preserve existing if requested
+        if preserve_splits and output_path.exists():
+            print("⚠️  Existing plan file found. Loading existing data_splits to preserve data splits...")
+            try:
+                with open(output_path, 'r') as f:
+                    existing_plan = json.load(f)
+                if 'data_splits' in existing_plan:
+                    data_splits = existing_plan['data_splits']
+                    print("✅ Using existing data_splits (preserved)")
+                else:
+                    print("⚠️  No data_splits found in existing plan, creating new splits...")
+                    data_splits = self.create_data_splits()
+            except Exception as e:
+                print(f"⚠️  Error loading existing plan: {e}. Creating new splits...")
+                data_splits = self.create_data_splits()
+        else:
+            # Create new data splits
+            data_splits = self.create_data_splits()
         
         # 3. Generate training config
         training_config = self.generate_training_config(feature_stats)
@@ -667,11 +781,6 @@ class ExperimentPlanner:
         }
         
         # 5. Save plan
-        if output_path is None:
-            output_path = self.dataset_dir / "dataset_plan.json"
-        else:
-            output_path = Path(output_path)
-        
         with open(output_path, 'w') as f:
             json.dump(plan, f, indent=4)
         

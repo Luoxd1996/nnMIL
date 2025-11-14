@@ -457,4 +457,3 @@ class ClassificationTrainer(BaseTrainer):
             json.dump(config_dict, f, indent=2)
         
         self.logger.info(f"Training configuration saved to {config_path}")
-

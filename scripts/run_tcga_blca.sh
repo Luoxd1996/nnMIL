@@ -5,9 +5,9 @@
 set -e  # Exit on error
 
 # Default values
-DATASET_DIR=${1:-"/mnt/radonc-Li02_vol2/private/luoxd96/MIL/github/nnMIL_raw_data/Task0100_TCGA-BRCA"}
+DATASET_DIR=${1:-"/mnt/radonc-Li02_vol2/private/luoxd96/MIL/github/nnMIL_raw_data/Task0101_TCGA-BLCA"}
 MODEL_TYPE=${2:-"simple_mil"}
-CUDA_DEVICE=${3:-"2"}
+CUDA_DEVICE=${3:-"3"}
 
 export CUDA_VISIBLE_DEVICES=$CUDA_DEVICE
 

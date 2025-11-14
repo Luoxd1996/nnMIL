@@ -23,7 +23,6 @@ def create_mil_model(model_type, input_dim=2560, hidden_dim=512, num_classes=2, 
         from .models.simple_mil import SimpleMIL
         return SimpleMIL(input_dim=input_dim, hidden_dim=hidden_dim, pred_num=num_classes,
                         activation=activation, dropout=True)
-    
     elif model_type == "ab_mil":
         from .models.ab_mil import AB_MIL
         hidden_dim = 512
@@ -84,7 +83,7 @@ def create_mil_model(model_type, input_dim=2560, hidden_dim=512, num_classes=2, 
     elif model_type == "dtfd_mil":
         hidden_dim = 512
         from .models.dtfd_mil import Attention_with_Classifier
-        base_model = Attention_with_Classifier(L=input_dim, D=hidden_dim//4, K=1, 
+        base_model = Attention_with_Classifier(L=input_dim, D=hidden_dim, K=1, 
                                              num_cls=num_classes, droprate=dropout)
         
         # DTFD_MIL expects [N, L] input (traditional MIL, batch_size=1)

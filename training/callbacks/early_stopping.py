@@ -288,10 +288,10 @@ class EarlyStoppingSurvival:
                 self.logger.info(msg)
             elif self.verbose:
                 print(msg)
-        elif score <= self.best_score + self.delta:
-            # No improvement (score <= best_score + delta) or worse
+        elif score < self.best_score + self.delta:
+            # No improvement (score < best_score + delta) or worse
             self.counter += 1
-            msg = f'EarlyStopping counter: {self.counter}/{self.patience} ({self.primary_metric}: {score:.4f} <= {self.best_score:.4f} + {self.delta:.4f})'
+            msg = f'EarlyStopping counter: {self.counter}/{self.patience} ({self.primary_metric}: {score:.4f} < {self.best_score:.4f} + {self.delta:.4f})'
             if self.logger:
                 self.logger.info(msg)
             elif self.verbose:

@@ -4,8 +4,8 @@
 
 set -e
 
-DATASET_DIR=${1:-"/mnt/radonc-Li02_vol2/private/luoxd96/MIL/github/nnMIL_raw_data/Task001_CRC_DSS"}
-MODEL_TYPE=${2:-"ab_mil"}
+DATASET_DIR=${1:-"/mnt/radonc-Li02_vol2/private/luoxd96/MIL/github/nnMIL_raw_data/Task016_PLCO_Lung"}
+MODEL_TYPE=${2:-"simple_mil"}
 CUDA_DEVICE=${3:-"2"}
 
 export CUDA_VISIBLE_DEVICES=$CUDA_DEVICE
@@ -41,15 +41,17 @@ echo ""
 
 
 
-# Step 3: Testing
-echo "Step 3/3: Testing..."
+# # Step 3: Testing
+# echo "Step 3/3: Testing..."
 CUDA_VISIBLE_DEVICES=3 python run/nnMIL_predict.py \
---plan_path /mnt/radonc-Li02_vol2/private/luoxd96/MIL/github/nnMIL_raw_data/Task001_CRC_DSS/dataset_plan.json \
---checkpoint_path /mnt/radonc-Li02_vol2/private/luoxd96/MIL/github/nnMIL_results/Task001_CRC_DSS/ab_mil/official_split/latest_ab_mil.pth \
---input_dir /scratch/luoxd96/omnipath/features/virchow2/SR386_WSIs/h5_files \
---output_dir /mnt/radonc-Li02_vol2/private/luoxd96/MIL/github/nnMIL_results/Task001_CRC_DSS/ab_mil/official_split/SR386_test_latest &
+--plan_path /mnt/radonc-Li02_vol2/private/luoxd96/MIL/github/nnMIL_raw_data/Task016_PLCO_Lung/dataset_plan.json \
+--checkpoint_path /mnt/radonc-Li02_vol2/private/luoxd96/MIL/github/nnMIL_results/Task016_PLCO_Lung/simple_mil/official_split/best_simple_mil.pth \
+--input_dir /scratch/luoxd96/omnipath/features/virchow2/nlst/h5_files \
+--output_dir /mnt/radonc-Li02_vol2/private/luoxd96/MIL/github/nnMIL_results/Task016_PLCO_Lung/simple_mil/official_split/nlst_test_best &
+
+
 CUDA_VISIBLE_DEVICES=2 python run/nnMIL_predict.py \
---plan_path /mnt/radonc-Li02_vol2/private/luoxd96/MIL/github/nnMIL_raw_data/Task001_CRC_DSS/dataset_plan.json \
---checkpoint_path /mnt/radonc-Li02_vol2/private/luoxd96/MIL/github/nnMIL_results/Task001_CRC_DSS/ab_mil/official_split/latest_ab_mil.pth \
---input_dir /scratch/luoxd96/omnipath/features/virchow2/MCO/h5_files \
---output_dir /mnt/radonc-Li02_vol2/private/luoxd96/MIL/github/nnMIL_results/Task001_CRC_DSS/ab_mil/official_split/MCO_test_latest
+--plan_path /mnt/radonc-Li02_vol2/private/luoxd96/MIL/github/nnMIL_raw_data/Task016_PLCO_Lung/dataset_plan.json \
+--checkpoint_path /mnt/radonc-Li02_vol2/private/luoxd96/MIL/github/nnMIL_results/Task016_PLCO_Lung/simple_mil/official_split/latest_simple_mil.pth \
+--input_dir /scratch/luoxd96/omnipath/features/virchow2/nlst/h5_files \
+--output_dir /mnt/radonc-Li02_vol2/private/luoxd96/MIL/github/nnMIL_results/Task016_PLCO_Lung/simple_mil/official_split/nlst_test_latest
