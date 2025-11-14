@@ -38,7 +38,7 @@ Each bundle contains:
 
 | Task ID | Cohort / Description | Feature link |
 | ------- | -------------------- | ------------ |
-| `Task001_CRC_DSS` | CRC DSS survival (External evaluation, Virchow2) | [Google Drive](https://drive.google.com/drive/folders/1SiF379K70hWAPzq6TOKrwX8VX2DCDyJq?usp=sharing)|
+| `Task0117_CRC_DSS` | CRC DSS survival (External evaluation, Virchow2) | [Google Drive](https://drive.google.com/drive/folders/1SiF379K70hWAPzq6TOKrwX8VX2DCDyJq?usp=sharing)|
 | `Task010_TCGA-BRCA` | BRCA DSS survival (5-fold, Virchow2)| [Google Drive](https://drive.google.com/drive/folders/1PVuRhnc_ObUn1aFRSiyk5_5vtWjoCeNv?usp=sharing) |
 | `Task002_EBRAINS_Fine` | EBRAINS coarse classification (official split, UNI) | [Google Drive](https://drive.google.com/file/d/16tpUS-o21WsQH1U3Jyqi4784sb-OceiB/view?usp=sharing) |
 | `Task002_EBRAINS_Coarse` | EBRAINS coarse classification  (official split, UNI) | [Google Drive](https://drive.google.com/file/d/16tpUS-o21WsQH1U3Jyqi4784sb-OceiB/view?usp=sharing) |
@@ -59,10 +59,10 @@ Each bundle contains:
 
    # Example: survival task on CRC DSS (official split)
    CUDA_VISIBLE_DEVICES=0 python nnMIL/run/nnMIL_predict.py \
-     --plan_path nnMIL_raw_data/Task_001_CRC_DSS/dataset_plan.json \
-     --checkpoint_path nnMIL_results/Task_001_CRC_DSS/simple_mil/official_split/best_simple_mil.pth \
+     --plan_path nnMIL_raw_data/Task0117_CRC_DSS/dataset_plan.json \
+     --checkpoint_path nnMIL_results/Task0117_CRC_DSS/simple_mil/official_split/best_simple_mil.pth \
      --input_dir /XXXX/SR386_WSIs/h5_files \
-     --output_dir nnMIL_results/Task_001_CRC_DSS/simple_mil/official_split_random/SR386_WSIs_test_best \
+     --output_dir nnMIL_results/Task0117_CRC_DSS/simple_mil/official_split_random/SR386_WSIs_test_best \
      # Due to the license, we can not release the embedding of PLCO-CRC and MCO, but we have released the model for evaluation.
    
    ```
