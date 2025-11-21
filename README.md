@@ -90,6 +90,18 @@ We gratefully acknowledge prior work that inspired nnMIL:
   
 This project focuses mainly on simple yet generalizable MIL training. For feature extraction, we highly recommend using the excellent project [CLAM](https://github.com/mahmoodlab/CLAM).
 
+ If you use this codebase in your research, please cite the following works:
+
+  @misc{luo2025nnmilgeneralizablemultipleinstance,
+        title={nnMIL: A generalizable multiple instance learning framework for computational pathology}, 
+        author={Xiangde Luo and Jinxi Xiang and Yuanfeng Ji and Ruijiang Li},
+        year={2025},
+        eprint={2511.14907},
+        archivePrefix={arXiv},
+        primaryClass={cs.CV},
+        url={https://arxiv.org/abs/2511.14907}, 
+  }
+
 ## Status & Contact
 
 nnMIL is actively evolving—expect iterative updates to the planner, trainers, and evaluation scripts. Feedback and contributions are welcome. Reach out at luoxd96 at stanford dot edu.
