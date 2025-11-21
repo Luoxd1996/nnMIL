@@ -92,7 +92,7 @@ This project focuses mainly on simple yet generalizable MIL training. For featur
 
  If you use this codebase in your research, please cite the following works:
 
-  @misc{luo2025nnmilgeneralizablemultipleinstance,
+		@misc{luo2025nnmilgeneralizablemultipleinstance,
         title={nnMIL: A generalizable multiple instance learning framework for computational pathology}, 
         author={Xiangde Luo and Jinxi Xiang and Yuanfeng Ji and Ruijiang Li},
         year={2025},
@@ -100,7 +100,7 @@ This project focuses mainly on simple yet generalizable MIL training. For featur
         archivePrefix={arXiv},
         primaryClass={cs.CV},
         url={https://arxiv.org/abs/2511.14907}, 
-  }
+    }
 
 ## Status & Contact
 
