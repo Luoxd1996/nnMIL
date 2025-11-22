@@ -1,10 +1,10 @@
 # [nnMIL: No-New Multiple Instance Learning](https://www.arxiv.org/pdf/2511.14907)
 
-nnMIL: A simple yet generalizable multiple instance learning framework for computational pathology
+nnMIL: A generalizable multiple instance learning framework for computational pathology
 
 - **No-new MIL** training strategies yield benefits in the foundation model era.
 - **Unified pipeline** for classification, regression, and survival MIL tasks
-- **Plan-driven training** that inspects slide features, builds patient-level splits, and recommends hyper-parameters
+- **Plan-driven training** that inspects slide features, builds patient-level splits, and recommends hyperparameters
 - **Consistent inference utilities** for official or k-fold evaluation settings
 
 Looking for the full step-by-step walkthrough? Jump to [`TUTORIAL.md`](./TUTORIAL.md).
