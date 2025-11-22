@@ -1,4 +1,4 @@
-# nnMIL: No-New Multiple Instance Learning
+# [nnMIL: No-New Multiple Instance Learning](https://www.arxiv.org/pdf/2511.14907)
 
 nnMIL: A simple yet generalizable multiple instance learning framework for computational pathology
 
