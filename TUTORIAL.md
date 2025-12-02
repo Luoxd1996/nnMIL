@@ -295,6 +295,8 @@ python nnMIL/run/nnMIL_predict.py \
   --fold None
 ```
 
+**Tip:** Check both the `best` and `latest` checkpoints, the `latest` one is often more stable in practice and is what we used in the paper.
+
 ## 10. Customising for Your Dataset
 
 ### Choosing a new task ID
