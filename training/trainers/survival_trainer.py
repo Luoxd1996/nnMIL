@@ -22,7 +22,7 @@ from nnMIL.training.trainers.base_trainer import BaseTrainer
 from nnMIL.network_architecture.model_factory import create_mil_model
 from nnMIL.utilities.utils import cosine_lr
 from nnMIL.utilities.plan_loader import create_dataset_from_plan
-from nnMIL.training.samplers.survival_sampler import BalancedSurvivalSampler, StratifiedSurvivalSampler, RiskSetBatchSampler
+from nnMIL.training.samplers.survival_sampler import BalancedSurvivalSampler, StratifiedSurvivalSampler, RiskSetBatchSampler, TimeContrastSampler
 from nnMIL.training.losses.survival_loss import SurvivalLoss, survival_c_index
 from nnMIL.training.callbacks.early_stopping import EarlyStoppingSurvival
 
@@ -114,6 +114,17 @@ class SurvivalTrainer(BaseTrainer):
                 collate_fn=default_collate_fn
             )
             self.logger.info("Using StratifiedSurvivalSampler")
+        elif batch_sampler_type == 'time_contrast' and batch_size > 1:
+            buckets = self.config.get('time_contrast_buckets', 4)
+            train_sampler = TimeContrastSampler(
+                train_dataset, batch_size, buckets=buckets, shuffle=True, seed=self.seed
+            )
+            self.train_loader = DataLoader(
+                train_dataset, batch_sampler=train_sampler, num_workers=4,
+                worker_init_fn=lambda worker_id: np.random.seed(self.seed + worker_id),
+                collate_fn=default_collate_fn
+            )
+            self.logger.info("Using TimeContrastSampler")
         else:
             generator = torch.Generator()
             generator.manual_seed(self.seed)

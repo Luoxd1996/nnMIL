@@ -149,7 +149,7 @@ Examples:
                 parts = checkpoint_dir.split(os.sep)
                 # Look for common model types in path
                 for part in reversed(parts):
-                    if part in ['simple_mil', 'ab_mil', 'ds_mil', 'trans_mil', 'wikg_mil']:
+                    if part in ['simple_mil', 'ab_mil']:
                         inferred_model_type = part
                         break
         
@@ -187,7 +187,7 @@ Examples:
                 parts = checkpoint_dir.split(os.sep)
                 # Look for common model types in path
                 for part in reversed(parts):
-                    if part in ['simple_mil', 'ab_mil', 'ds_mil', 'trans_mil', 'wikg_mil']:
+                    if part in ['simple_mil', 'ab_mil']:
                         inferred_model_type = part
                         break
         

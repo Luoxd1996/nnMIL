@@ -14,9 +14,10 @@ __all__ = [
     'NLLSurvLoss',
     'CombinedRegressionLoss',
     # Samplers
-    'BalancedSurvivalSampler', 
-    'StratifiedSurvivalSampler', 
+    'BalancedSurvivalSampler',
+    'StratifiedSurvivalSampler',
     'RiskSetBatchSampler',
+    'TimeContrastSampler',
     'BalancedBatchSampler',
     'AUCBatchSampler',
     'RegressionBatchSampler',

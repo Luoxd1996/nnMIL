@@ -21,15 +21,6 @@ from nnMIL.data.dataset import random_length_collate_fn
 from nnMIL.utilities.utils import get_eval_metrics
 
 
-def create_mask_from_bag_sizes(bags, bag_sizes):
-    """Create mask tensor from bag sizes for VisionTransformer"""
-    max_possible_bag_size = bags.size(1)
-    mask = torch.arange(max_possible_bag_size).type_as(bag_sizes).unsqueeze(0).repeat(
-        len(bags), 1
-    ) >= bag_sizes.unsqueeze(1)
-    return mask
-
-
 def aggregate_by_patient(df, task_type='classification'):
     """Aggregate results by patient for classification tasks"""
     if 'patient_id' not in df.columns:
@@ -149,10 +140,7 @@ class ClassificationPredictor(BasePredictor):
                 label = label.to(device)
                 
                 # Handle different model types
-                if model_type == 'vision_transformer':
-                    mask = create_mask_from_bag_sizes(features, bag_sizes)
-                    output = model(features, coords=coords, mask=mask)
-                elif model_type == 'simple_mil':
+                if model_type == 'simple_mil':
                     stride_divisor = kwargs.get('stride_divisor', 4)
                     output = model(features, stride_divisor=stride_divisor)
                 else:

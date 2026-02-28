@@ -25,15 +25,6 @@ from nnMIL.training.samplers.classification_sampler import BalancedBatchSampler,
 from nnMIL.training.callbacks.early_stopping import EarlyStopping
 
 
-def create_mask_from_bag_sizes(bags, bag_sizes):
-    """Create mask tensor from bag sizes for VisionTransformer"""
-    max_possible_bag_size = bags.size(1)
-    mask = torch.arange(max_possible_bag_size).type_as(bag_sizes).unsqueeze(0).repeat(
-        len(bags), 1
-    ) >= bag_sizes.unsqueeze(1)
-    return mask
-
-
 class ClassificationTrainer(BaseTrainer):
     """Trainer for classification tasks"""
     
@@ -232,11 +223,7 @@ class ClassificationTrainer(BaseTrainer):
                 optimizer.zero_grad()
                 
                 with torch.amp.autocast(device_type, dtype=torch.bfloat16):
-                    if self.model_type == 'vision_transformer':
-                        mask = create_mask_from_bag_sizes(features, bag_sizes)
-                        output = self.model(features, coords=coords, mask=mask)
-                    else:
-                        output = self.model(features)
+                    output = self.model(features)
                     
                     if isinstance(output, dict):
                         logits = output['logits']
@@ -339,11 +326,7 @@ class ClassificationTrainer(BaseTrainer):
                 coords = coords.to(self.device)
                 bag_sizes = bag_sizes.to(self.device)
                 
-                if self.model_type == 'vision_transformer':
-                    mask = create_mask_from_bag_sizes(features, bag_sizes)
-                    output = self.model(features, coords=coords, mask=mask)
-                else:
-                    output = self.model(features)
+                output = self.model(features)
                 
                 if isinstance(output, dict):
                     logits = output['logits']

@@ -321,71 +321,80 @@ class RiskSetBatchSampler(torch.utils.data.Sampler):
         return self.num_batches
 
 
+class TimeContrastSampler(torch.utils.data.Sampler):
+    """
+    Time-Contrast Sampler for Survival Analysis.
 
-# class RiskSetBatchSampler(torch.utils.data.Sampler):
-#     def __init__(self, dataset, batch_size, min_events=2, overlap=0, shuffle_within=True, seed=None):
-#         self.dataset = dataset
-#         self.batch_size = batch_size
-#         self.min_events = min_events
-#         self.overlap = overlap
-#         self.shuffle_within = shuffle_within
-#         self.seed = seed
+    This sampler divides the dataset into N time buckets (e.g., early, mid, late events)
+    and ensures that each batch contains a balanced mix of samples from all time ranges.
 
-#         # Extract time and status
-#         times, status = [], []
-#         for i in range(len(dataset)):
-#             # Survival dataset returns: features, coords, bag_size, status, time, patient_id, slide_id (7 items)
-#             item = dataset[i]
-#             if len(item) == 7:
-#                 _, _, _, s, t, _, _ = item
-#             elif len(item) == 6:
-#                 # Old format without slide_id
-#                 _, _, _, s, t, _ = item
-#             else:
-#                 raise ValueError(f"Unexpected dataset item length: {len(item)}")
-#             times.append(float(t))
-#             status.append(int(s))
-#         times = np.asarray(times); status = np.asarray(status)
+    This maximizes the gradient signal for Cox Loss by ensuring robust comparison candidates
+    (Risk Set) exist across the entire time spectrum in every batch, without the downsides
+    of sorting data (which hurts Batch Normalization and generalization).
+    """
+    def __init__(self, dataset, batch_size, buckets=4, shuffle=True, seed=None):
+        self.dataset = dataset
+        self.batch_size = batch_size
+        self.buckets = buckets
+        self.shuffle = shuffle
+        self.seed = seed
 
-#         # Sort by time in descending order
-#         self.order = np.argsort(-times, kind='mergesort')
-#         self.times = times[self.order]
-#         self.status = status[self.order]
+        # --- 1. Extract Time Information ---
+        # Handle both 6-item (old) and 7-item (new with slide_id) formats: time at index 4
+        self.times = []
+        for i in range(len(dataset)):
+            item = dataset[i]
+            time_val = item[4]
+            self.times.append(float(time_val.item() if hasattr(time_val, "item") else time_val))
 
-#         # Pre-generate batch start positions
-#         step = self.batch_size - self.overlap
-#         self.starts = list(range(0, len(self.order), step))
+        self.times = np.array(self.times)
 
-#     def __iter__(self):
-#         rng = np.random.default_rng(self.seed) if self.seed is not None else np.random.default_rng()
-#         batches = []
-#         n = len(self.order)
+        # --- 2. Binning Logic ---
+        sorted_indices = np.argsort(self.times)
+        self.indices_in_bins = np.array_split(sorted_indices, buckets)
 
-#         for s in self.starts:
-#             e = min(s + self.batch_size, n)
-#             idx = self.order[s:e]
-#             # Ensure at least min_events events; extend backward (earlier time) if needed
-#             extra_ptr = e
-#             while (self.status[idx].sum() < self.min_events) and (extra_ptr < n):
-#                 take = min(self.min_events - self.status[idx].sum(), n - extra_ptr)
-#                 extra = self.order[extra_ptr: extra_ptr + take]
-#                 idx = np.concatenate([idx, extra], axis=0)
-#                 extra_ptr += take
-#                 if len(idx) >= self.batch_size:
-#                     break
-#             # Truncate to batch_size if exceeded
-#             if len(idx) > self.batch_size:
-#                 idx = idx[:self.batch_size]
+        self.num_batches = len(dataset) // batch_size
+        self.samples_per_bin = batch_size // buckets
 
-#             # Light shuffle within window (no cross-window shuffle, preserves time structure)
-#             if self.shuffle_within:
-#                 rng.shuffle(idx)
+        print(f"TimeContrastSampler: {self.buckets} time buckets, {self.samples_per_bin} samples per bin per batch, {self.num_batches} batches")
 
-#             batches.append(idx.tolist())
+    def __iter__(self):
+        if self.seed is not None:
+            np.random.seed(self.seed)
 
-#         # Light shuffle of batch order (optional)
-#         rng.shuffle(batches)
-#         return iter(batches)
+        shuffled_bins = [
+            np.random.permutation(b) if self.shuffle else np.array(b)
+            for b in self.indices_in_bins
+        ]
 
-#     def __len__(self):
-#         return len(self.starts)
+        bin_pointers = [0] * self.buckets
+        final_indices = []
+
+        for _ in range(self.num_batches):
+            batch = []
+
+            for bin_i in range(self.buckets):
+                start = bin_pointers[bin_i]
+                end = start + self.samples_per_bin
+
+                if end > len(shuffled_bins[bin_i]):
+                    if self.shuffle:
+                        shuffled_bins[bin_i] = np.random.permutation(self.indices_in_bins[bin_i])
+                    start = 0
+                    end = self.samples_per_bin
+                    bin_pointers[bin_i] = 0
+
+                batch.extend(shuffled_bins[bin_i][start:end].tolist())
+                bin_pointers[bin_i] = end
+
+            np.random.shuffle(batch)
+            final_indices.append(batch)
+
+        if self.shuffle:
+            np.random.shuffle(final_indices)
+
+        return iter(final_indices)
+
+    def __len__(self):
+        return self.num_batches
+
