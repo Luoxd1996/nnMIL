@@ -20,6 +20,7 @@ from torch.utils.data import DataLoader
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from nnMIL.utilities.plan_loader import load_plan, get_config_from_plan, get_dataset_info_from_plan, create_dataset_from_plan
+from nnMIL.network_architecture.model_factory import storage_model_type
 
 
 def set_random_seeds(seed=42):
@@ -108,13 +109,15 @@ class BaseTrainer(ABC):
         
         Args:
             plan_path: Path to dataset_plan.json
-            model_type: Model architecture (e.g., 'simple_mil')
+            model_type: Model architecture (e.g., 'simple_mil', 'nnmil', 'ab_mil'). simple_mil and nnmil are aliases;
+                artifacts are always stored under the name returned by storage_model_type (nnmil for that family).
             fold: Cross-validation fold (0-4) or None for official_split
             save_dir: Directory to save checkpoints and logs
             **kwargs: Additional arguments that can override plan settings
         """
         self.plan_path = plan_path
-        self.model_type = model_type
+        self._model_type_arg = model_type
+        self.model_type = storage_model_type(model_type)
         self.fold = fold
         
         # Load plan file
@@ -131,7 +134,7 @@ class BaseTrainer(ABC):
             save_dir = os.path.join(
                 "nnMIL_results",
                 dataset_name,
-                model_type,
+                self.model_type,
                 f"fold_{fold}" if fold is not None else "official_split"
             )
         self.save_dir = save_dir
@@ -141,7 +144,10 @@ class BaseTrainer(ABC):
         self.logger = setup_logging(self.save_dir, self.model_type)
         self.logger.info(f"Initializing {self.__class__.__name__}")
         self.logger.info(f"Plan file: {plan_path}")
-        self.logger.info(f"Model type: {model_type}")
+        if self._model_type_arg != self.model_type:
+            self.logger.info(f"Model type: {self._model_type_arg} (save dir / checkpoints: {self.model_type})")
+        else:
+            self.logger.info(f"Model type: {self._model_type_arg}")
         self.logger.info(f"Fold: {fold}")
         self.logger.info(f"Save directory: {self.save_dir}")
         
@@ -194,6 +200,14 @@ class BaseTrainer(ABC):
     def get_dataset_info(self) -> Dict[str, Any]:
         """Get dataset information"""
         return self.dataset_info
+    
+    def get_sequence_config_for_save(self) -> Dict[str, Any]:
+        """How train bags are built (matches UnifiedMILDataset). For training_config.json."""
+        use_orig = bool(self.config.get('use_original_length', False))
+        plan_max = self.config.get('max_seq_length')
+        if use_orig:
+            return {"use_original_length": True, "max_seq_length": None}
+        return {"use_original_length": False, "max_seq_length": plan_max}
     
     @abstractmethod
     def create_model(self):

@@ -206,7 +206,7 @@ class InferenceEngine:
                   else 0.25)
         model_type = (kwargs.get('model_type') if kwargs.get('model_type') is not None
                      else checkpoint_config.get('model_type') if checkpoint_config.get('model_type') is not None
-                     else 'simple_mil')
+                     else 'nnmil')
         
         # Debug: print num_classes determination for troubleshooting
         import logging

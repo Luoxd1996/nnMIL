@@ -17,6 +17,7 @@ from torch.utils.data import DataLoader
 from nnMIL.inference.predictors.base_predictor import BasePredictor
 from nnMIL.data.dataset import random_length_collate_fn
 from nnMIL.training.losses.survival_loss import survival_c_index
+from nnMIL.network_architecture.model_factory import storage_model_type
 
 
 class SurvivalPredictor(BasePredictor):
@@ -46,12 +47,12 @@ class SurvivalPredictor(BasePredictor):
             collate_fn=random_length_collate_fn
         )
         
-        model_type = kwargs.get('model_type', 'simple_mil')
+        model_type = kwargs.get('model_type', 'nnmil')
         stride_divisor = kwargs.get('stride_divisor', None)
         dataset_name = kwargs.get('dataset_name', None)
         save_csv_path = None
         if save_dir:
-            save_csv_path = os.path.join(save_dir, f"results_{model_type}.csv")
+            save_csv_path = os.path.join(save_dir, f"results_{storage_model_type(model_type)}.csv")
         
         # Initialize lists for collecting results
         preds_all = []
@@ -196,28 +197,41 @@ class SurvivalPredictor(BasePredictor):
                 MI_all = np.concatenate(MI_all).flatten()
                 H_mean_all = np.concatenate(H_mean_all).flatten()
             
-            # H_each: handle [K, B] format
+            # H_each: [K, B], [K, B, P] (NLL/Cox chunks), or [K]
             if len(H_each_all) > 0:
                 H_each_concat = []
                 for h_batch in H_each_all:
-                    # h_batch is [K, B], transpose to [B, K]
+                    h_batch = np.asarray(h_batch)
                     if h_batch.ndim == 2:
                         h_batch_transposed = h_batch.T
                         for b in range(h_batch_transposed.shape[0]):
                             H_each_concat.append(h_batch_transposed[b])
+                    elif h_batch.ndim == 3:
+                        # [K, B, P] e.g. per-chunk logits — aggregate over K for one row per (slide, bin)
+                        pooled = h_batch.mean(axis=0)
+                        for b in range(pooled.shape[0]):
+                            H_each_concat.append(pooled[b])
+                    elif h_batch.ndim == 1:
+                        H_each_concat.append(h_batch)
                     else:
-                        # Already [B, K] or [K]
-                        if h_batch.ndim == 1:
-                            H_each_concat.append(h_batch)
-                        else:
-                            H_each_concat.extend([h_batch[i] for i in range(h_batch.shape[0])])
-                H_each_all = np.array(H_each_concat) if H_each_concat else np.array([])
+                        pooled = np.asarray(h_batch).reshape(h_batch.shape[0], -1).mean(axis=0)
+                        H_each_concat.append(pooled)
+                H_each_all = np.stack(H_each_concat, axis=0) if H_each_concat else np.array([])
             
             if len(var_logits_all) > 0:
-                var_logits_all = np.concatenate(var_logits_all).flatten()
+                var_logits_all = np.concatenate(var_logits_all, axis=0)
+                if var_logits_all.ndim == 1:
+                    var_logits_all = var_logits_all.reshape(-1, 1)
             
             if logger:
-                n_samples = len(MI_all) if len(MI_all) > 0 else len(H_each_all) if len(H_each_all) > 0 else len(var_logits_all)
+                if len(MI_all) > 0:
+                    n_samples = len(MI_all)
+                elif isinstance(H_each_all, np.ndarray) and H_each_all.size > 0:
+                    n_samples = H_each_all.shape[0]
+                elif len(var_logits_all) > 0:
+                    n_samples = int(var_logits_all.shape[0])
+                else:
+                    n_samples = 0
                 logger.info(f"Uncertainty metrics collected for {n_samples} samples")
         
         if logger:
@@ -341,17 +355,18 @@ class SurvivalPredictor(BasePredictor):
                 results_dict['H_mean'] = H_mean_all
             
             if len(H_each_all) > 0:
-                # H_each is [N, K], save each chunk as separate columns
-                # Or save as comma-separated string if K varies
                 if H_each_all.ndim == 2:
                     for k in range(H_each_all.shape[1]):
                         results_dict[f'H_chunk_{k}'] = H_each_all[:, k]
                 else:
-                    # Convert to string representation if shape is inconsistent
                     results_dict['H_each'] = [str(h) for h in H_each_all]
             
             if len(var_logits_all) > 0:
-                results_dict['var_logits'] = var_logits_all
+                if var_logits_all.shape[1] == 1:
+                    results_dict['var_logits'] = var_logits_all[:, 0]
+                else:
+                    for p in range(var_logits_all.shape[1]):
+                        results_dict[f'var_logits_{p}'] = var_logits_all[:, p]
         
         results_df = pd.DataFrame(results_dict)
         

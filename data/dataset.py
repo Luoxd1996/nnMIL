@@ -27,8 +27,8 @@ class UnifiedMILDataset(Dataset):
     
     Key principles:
     - Simple and generic (no dataset-specific hardcoding)
-    - Training: pure random crop for data augmentation
-    - Validation/Test: fixed crop (first max_seq_length patches)
+    - Training: max_seq_length caps/subsamples; use_original_length ignores that cap but uses ~90% patches (10% random drop aug)
+    - Validation/Test: always all patches from each slide
     - All task-specific info comes from plan file or standard CSV format
     """
     def __init__(self, csv_path, features_dir, task_type='classification', 
@@ -96,7 +96,7 @@ class UnifiedMILDataset(Dataset):
         
         # Compute sequence length settings
         # Key rules:
-        # - Training: use configured length (max_seq_length) OR original with 10% drop
+        # - Training: max_seq_length from plan OR use_original_length (no length cap; train-time ~90% patch aug)
         # - Validation/Test: ALWAYS use all original patches (no trimming, no dropping)
         if split in ['val', 'test']:
             # Validation and Test: ALWAYS use all original patches (override any config)
@@ -104,10 +104,10 @@ class UnifiedMILDataset(Dataset):
             self.use_original_length = True
             print(f"{split.capitalize()}: Using ALL original patches (no trimming, no dropping)")
         elif use_original_length:
-            # Training with original length: drop 10% for data augmentation
+            # Training: max_seq_length ignored; __getitem__ applies ~90% patch keep + 10% drop aug
             self.max_seq_length = None
             self.use_original_length = True
-            print(f"Training: Using original length with 10% random drop for data augmentation")
+            print(f"Training: use_original_length (no max_seq_length cap); ~90% patches/epoch, 10% random drop aug")
         elif skip_feature_validation:
             # From plan file: max_seq_length already calculated for training
             # NEVER calculate again - planning already did it!
@@ -365,9 +365,8 @@ class UnifiedMILDataset(Dataset):
         
         # Apply sequence length handling based on split and settings
         # Rules (same as GenericMILDataset):
-        # - Training: if max_seq_length is set, ALL samples are processed to max_seq_length 
-        #            (random selection if longer, padding if shorter - done at dataset level)
-        #            if use_original_length, randomly drop 10% for data augmentation
+        # - Training: if max_seq_length is set, subsample/pad to that length;
+        #            if use_original_length, random 90% of patches (10% drop aug; no max_seq_length cap)
         # - Validation/Test: ALWAYS use all original patches (no trimming, no dropping)
         # Store original number of patches before any processing (for bag_size mask)
         original_num_patches = len(features)
@@ -378,14 +377,13 @@ class UnifiedMILDataset(Dataset):
             actual_num_patches = original_num_patches
             pass
         elif self.use_original_length:
-            # Training with original length: randomly drop 10% for data augmentation
+            # Training: no max_seq_length cap; keep ~90% of patches (10% random drop for augmentation)
             num_patches = len(features)
             num_to_keep = int(num_patches * 0.9)  # Keep 90%
             if num_to_keep < num_patches and num_to_keep > 0:
-                # Use deterministic seed based on sample index
                 rng = np.random.RandomState(self.seed + idx)
                 indices = rng.choice(num_patches, num_to_keep, replace=False)
-                indices = np.sort(indices)  # Keep order for consistency
+                indices = np.sort(indices)
                 features = features[indices]
                 coords = coords[indices]
                 actual_num_patches = num_to_keep

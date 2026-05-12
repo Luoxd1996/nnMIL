@@ -455,12 +455,12 @@ class RegressionTrainer(BaseTrainer):
             "patience": self.config.get('patience', 10),
             "hidden_dim": self.config.get('hidden_dim', 256),
             "feature_dimension": self.config.get('feature_dimension'),
-            "max_seq_length": self.config.get('max_seq_length'),
-            "metric": self.dataset_info.get('metric', 'pearson'),
-            "normalize_target": self.normalize_target,
-            "normalization_method": self.normalization_method,
-            "loss_function": self.loss_function,
         }
+        actual_config.update(self.get_sequence_config_for_save())
+        actual_config["metric"] = self.dataset_info.get('metric', 'pearson')
+        actual_config["normalize_target"] = self.normalize_target
+        actual_config["normalization_method"] = self.normalization_method
+        actual_config["loss_function"] = self.loss_function
         
         dataset_info_dict = {
             "task_type": self.dataset_info.get('task_type'),

@@ -149,13 +149,13 @@ Examples:
                 parts = checkpoint_dir.split(os.sep)
                 # Look for common model types in path
                 for part in reversed(parts):
-                    if part in ['simple_mil', 'ab_mil']:
+                    if part in ['simple_mil', 'nnmil', 'ab_mil']:
                         inferred_model_type = part
                         break
         
         # Override config with command-line arguments if provided
         kwargs = {
-            'model_type': args.model_type or inferred_model_type or config.get('model_type', 'simple_mil'),
+            'model_type': args.model_type or inferred_model_type or config.get('model_type', 'nnmil'),
             'input_dim': args.input_dim or config.get('feature_dimension', 2560),
             'hidden_dim': args.hidden_dim or config.get('hidden_dim', 512),
             'dropout': args.dropout or config.get('dropout', 0.25),
@@ -187,13 +187,13 @@ Examples:
                 parts = checkpoint_dir.split(os.sep)
                 # Look for common model types in path
                 for part in reversed(parts):
-                    if part in ['simple_mil', 'ab_mil']:
+                    if part in ['simple_mil', 'nnmil', 'ab_mil']:
                         inferred_model_type = part
                         break
         
         # Override config with command-line arguments if provided
         kwargs = {
-            'model_type': args.model_type or inferred_model_type or config.get('model_type', 'simple_mil'),
+            'model_type': args.model_type or inferred_model_type or config.get('model_type', 'nnmil'),
             'input_dim': args.input_dim or config.get('feature_dimension', 2560),
             'hidden_dim': args.hidden_dim or config.get('hidden_dim', 512),
             'dropout': args.dropout or config.get('dropout', 0.25),

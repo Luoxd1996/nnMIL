@@ -198,7 +198,7 @@ class SurvivalPorpoiseTrainer(BaseTrainer):
             
             pbar = tqdm(self.train_loader, desc=f"Epoch {epoch+1}")
             for batch_idx, batch in enumerate(pbar):
-                features, coords, bag_sizes, status, time, patient_ids = batch
+                features, coords, bag_sizes, status, time, patient_ids, _ = batch
                 
                 features = features.to(self.device)
                 if features.dim() == 2:
@@ -255,6 +255,10 @@ class SurvivalPorpoiseTrainer(BaseTrainer):
             torch.set_grad_enabled(True)
             self.model.train()
             
+            latest_model_path = os.path.join(self.save_dir, f"latest_{self.model_type}.pth")
+            torch.save(self.model.state_dict(), latest_model_path)
+            self.logger.info(f"Saved latest model to {latest_model_path}")
+            
             # Early stopping
             metric_value = val_metrics.get(f'val_{metric}', val_metrics.get('val_c_index', 0.0))
             # Convert to float to ensure it's a number, not a model object
@@ -268,6 +272,10 @@ class SurvivalPorpoiseTrainer(BaseTrainer):
             if early_stopping.early_stop:
                 self.logger.info(f"Early stopping triggered at epoch {epoch+1}")
                 break
+        
+        latest_model_path = os.path.join(self.save_dir, f"latest_{self.model_type}.pth")
+        torch.save(self.model.state_dict(), latest_model_path)
+        self.logger.info(f"Saved latest model to {latest_model_path}")
         
         # Load best model (EarlyStopping saves as best_{model_type}.pth)
         best_model_path = os.path.join(self.save_dir, f'best_{self.model_type}.pth')
@@ -302,7 +310,7 @@ class SurvivalPorpoiseTrainer(BaseTrainer):
         
         with torch.no_grad():
             for batch in tqdm(loader, desc=f"{prefix} Eval"):
-                features, coords, bag_sizes, status, time, patient_ids = batch
+                features, coords, bag_sizes, status, time, patient_ids, _ = batch
                 
                 features = features.to(self.device)
                 if features.dim() == 2:
@@ -414,11 +422,11 @@ class SurvivalPorpoiseTrainer(BaseTrainer):
             "patience": self.config.get('patience', 10),
             "hidden_dim": self.config.get('hidden_dim', 256),
             "feature_dimension": self.config.get('feature_dimension'),
-            "max_seq_length": self.config.get('max_seq_length'),
-            "metric": self.dataset_info.get('metric', 'c_index'),
-            "survival_loss": self.survival_loss,
-            "nll_bins": self.nll_bins,
         }
+        actual_config.update(self.get_sequence_config_for_save())
+        actual_config["metric"] = self.dataset_info.get('metric', 'c_index')
+        actual_config["survival_loss"] = self.survival_loss
+        actual_config["nll_bins"] = self.nll_bins
         
         dataset_info_dict = {
             "task_type": self.dataset_info.get('task_type'),

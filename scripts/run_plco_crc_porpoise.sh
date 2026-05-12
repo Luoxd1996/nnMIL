@@ -4,8 +4,8 @@
 
 set -e
 
-DATASET_DIR=${1:-"/scratch/luoxd96/nnmil/nnMIL_raw_data/Task0118_PLCO_Lung_Porpoise"}
-MODEL_TYPE=${2:-"ab_mil"}
+DATASET_DIR=${1:-"/scratch/luoxd96/nnmil/nnMIL_raw_data/Task0117_CRC_DSS_Porpoise"}
+MODEL_TYPE=${2:-"simple_mil"}
 CUDA_DEVICE=${3:-"2"}
 
 export CUDA_VISIBLE_DEVICES=$CUDA_DEVICE
@@ -41,17 +41,16 @@ echo ""
 
 
 
-# # Step 3: Testing
-# echo "Step 3/3: Testing..."
+# Step 3: Testing
+echo "Step 3/3: Testing..."
 CUDA_VISIBLE_DEVICES=3 python ../run/nnMIL_predict.py \
---plan_path /scratch/luoxd96/nnmil/nnMIL_raw_data/Task0118_PLCO_Lung_Porpoise/dataset_plan.json \
---checkpoint_path /scratch/luoxd96/nnmil/nnMIL_results/Task0118_PLCO_Lung_Porpoise/ab_mil/official_split/best_ab_mil.pth \
---input_dir /scratch/luoxd96/omnipath/features/virchow2/nlst/h5_files \
---output_dir /scratch/luoxd96/nnmil/nnMIL_results/Task0118_PLCO_Lung_Porpoise/ab_mil/official_split/nlst_test_best &
-
-
+--plan_path /scratch/luoxd96/nnmil/nnMIL_raw_data/Task0117_CRC_DSS_Porpoise/dataset_plan.json \
+--checkpoint_path /scratch/luoxd96/nnmil/nnMIL_results/Task0117_CRC_DSS_Porpoise/simple_mil/official_split/latest_simple_mil.pth \
+--input_dir /scratch/luoxd96/omnipath/features/virchow2/SR386_WSIs/h5_files \
+--output_dir /scratch/luoxd96/nnmil/nnMIL_results/Task0117_CRC_DSS_Porpoise/simple_mil/official_split/SR386_test_latest &
 CUDA_VISIBLE_DEVICES=2 python ../run/nnMIL_predict.py \
---plan_path /scratch/luoxd96/nnmil/nnMIL_raw_data/Task0118_PLCO_Lung_Porpoise/dataset_plan.json \
---checkpoint_path /scratch/luoxd96/nnmil/nnMIL_results/Task0118_PLCO_Lung_Porpoise/ab_mil/official_split/latest_ab_mil.pth \
---input_dir /scratch/luoxd96/omnipath/features/virchow2/nlst/h5_files \
---output_dir /scratch/luoxd96/nnmil/nnMIL_results/Task0118_PLCO_Lung_Porpoise/ab_mil/official_split/nlst_test_latest
+--plan_path /scratch/luoxd96/nnmil/nnMIL_raw_data/Task0117_CRC_DSS_Porpoise/dataset_plan.json \
+--checkpoint_path /scratch/luoxd96/nnmil/nnMIL_results/Task0117_CRC_DSS_Porpoise/simple_mil/official_split/latest_simple_mil.pth \
+--input_dir /scratch/luoxd96/omnipath/features/virchow2/MCO/h5_files \
+--output_dir /scratch/luoxd96/nnmil/nnMIL_results/Task0117_CRC_DSS_Porpoise/simple_mil/official_split/MCO_test_latest
+

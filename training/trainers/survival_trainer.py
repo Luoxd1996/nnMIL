@@ -24,27 +24,42 @@ from nnMIL.utilities.utils import cosine_lr
 from nnMIL.utilities.plan_loader import create_dataset_from_plan
 from nnMIL.training.samplers.survival_sampler import BalancedSurvivalSampler, StratifiedSurvivalSampler, RiskSetBatchSampler, TimeContrastSampler
 from nnMIL.training.losses.survival_loss import SurvivalLoss, survival_c_index
+from nnMIL.training.losses.survival_loss_nll import NLLSurvLoss
 from nnMIL.training.callbacks.early_stopping import EarlyStoppingSurvival
 
 
+def _map_time_to_bins_with_edges(time_tensor: torch.Tensor, edges: np.ndarray) -> torch.Tensor:
+    device = time_tensor.device
+    t_np = np.atleast_1d(time_tensor.detach().float().cpu().numpy())
+    bins = np.digitize(t_np, edges[1:-1], right=False)
+    bins = np.clip(bins, 0, len(edges) - 2).astype(np.int64)
+    bins_t = torch.from_numpy(bins).to(device=device, dtype=torch.long)
+    return bins_t.view(time_tensor.shape)
+
+
 class SurvivalTrainer(BaseTrainer):
-    """Trainer for survival tasks (Cox/MSE/MAE loss, batch_size > 1)"""
+    """Trainer for survival tasks (Cox/MSE/MAE or NLLSurv; batch_size typically > 1)"""
     
     def __init__(self, plan_path, model_type, fold=None, **kwargs):
         super().__init__(plan_path, model_type, fold, **kwargs)
         
         # Survival-specific initialization
         self.survival_loss = kwargs.get('survival_loss', self.config.get('survival_loss', 'cox'))
+        self.nll_bins = int(kwargs.get('nll_bins', self.config.get('nll_bins', 4)))
+        self.nll_bin_edges = None
         self.logger.info(f"Survival task initialized")
         self.logger.info(f"Survival loss: {self.survival_loss}")
+        if self.survival_loss == 'nllsurv':
+            self.logger.info(f"NLLSurv bins: {self.nll_bins}")
     
     def create_model(self):
-        """Create survival model (single output)"""
+        """Create survival model (1 logit for Cox/MSE/MAE; K logits for NLLSurv)"""
+        num_classes = self.nll_bins if self.survival_loss == 'nllsurv' else 1
         self.model = create_mil_model(
             model_type=self.model_type,
             input_dim=self.config['feature_dimension'],
             hidden_dim=self.config['hidden_dim'],
-            num_classes=1,  # Survival: single risk score output
+            num_classes=num_classes,
             dropout=self.config['dropout']
         )
         self.model = self.model.to(self.device)
@@ -151,6 +166,18 @@ class SurvivalTrainer(BaseTrainer):
         
         self.logger.info(f"Data loaders created - Train: {len(self.train_loader)}, Val: {len(self.val_loader)}, Test: {len(self.test_loader)}")
         
+        if self.survival_loss == 'nllsurv':
+            train_times = [train_dataset[i][4].item() for i in range(len(train_dataset))]
+            train_times = np.array(train_times)
+            qs = np.linspace(0, 1, self.nll_bins + 1)
+            edges = np.quantile(train_times, qs)
+            eps = 1e-6
+            for i in range(1, len(edges)):
+                if edges[i] <= edges[i - 1]:
+                    edges[i] = edges[i - 1] + eps
+            self.nll_bin_edges = edges
+            self.logger.info(f"NLL bin edges (train quantiles): {self.nll_bin_edges}")
+        
         return self.train_loader, self.val_loader, self.test_loader
     
     def train(self):
@@ -190,7 +217,12 @@ class SurvivalTrainer(BaseTrainer):
         ], lr=self.config.get('learning_rate', 1e-4))
         
         # Setup loss function
-        loss_fn = SurvivalLoss(loss_type=self.survival_loss)
+        if self.survival_loss == 'nllsurv':
+            if self.nll_bin_edges is None:
+                raise RuntimeError("NLLSurv requires bin edges; ensure create_data_loaders() ran.")
+            loss_fn = NLLSurvLoss()
+        else:
+            loss_fn = SurvivalLoss(loss_type=self.survival_loss)
         
         # Setup LR scheduler
         num_epochs = self.config.get('num_epochs', 100)
@@ -219,7 +251,7 @@ class SurvivalTrainer(BaseTrainer):
         self.model.train()
         global_step = 0
         
-        self.logger.info(f"Starting training for {num_epochs} epochs")
+        self.logger.info(f"Starting training for {num_epochs} epochs ({self.survival_loss})")
         
         for epoch in tqdm(range(num_epochs), desc="Training"):
             epoch_start_time = time_module.time()
@@ -269,27 +301,39 @@ class SurvivalTrainer(BaseTrainer):
                     else:
                         logits = output
                     
-                    logits = logits.squeeze(-1)  # Ensure 1D
-                    
-                    # Check if logits has gradient - if not, there's a problem with model output
-                    if not logits.requires_grad:
-                        self.logger.error(f"CRITICAL: logits.requires_grad={logits.requires_grad} at batch {batch_idx}")
-                        self.logger.error(f"  Model training mode: {self.model.training}")
-                        self.logger.error(f"  torch.is_grad_enabled(): {torch.is_grad_enabled()}")
-                        self.logger.error(f"  output type: {type(output)}")
-                        # Check if any model parameters require grad
-                        params_require_grad = [p.requires_grad for p in self.model.parameters()]
-                        self.logger.error(f"  Model params requiring grad: {sum(params_require_grad)}/{len(params_require_grad)}")
-                        raise RuntimeError(f"Cannot establish gradient connection for logits at batch {batch_idx}. Model may be detached or in eval mode.")
-                    
-                    loss = loss_fn(logits, status, time)
-                    
-                    # Verify loss has gradient connection - if not, it's a bug in loss function
-                    if not loss.requires_grad:
-                        self.logger.error(f"CRITICAL: loss.requires_grad={loss.requires_grad} at batch {batch_idx}")
-                        self.logger.error(f"  logits.requires_grad={logits.requires_grad}, logits.shape={logits.shape}")
-                        self.logger.error(f"  status.sum()={status.sum().item()}, batch_size={len(status)}")
-                        raise RuntimeError(f"Loss function returned tensor without gradient connection at batch {batch_idx}")
+                    if self.survival_loss == 'nllsurv':
+                        logits = logits.float()
+                        if logits.dim() == 1:
+                            logits = logits.unsqueeze(0)
+                        if not logits.requires_grad:
+                            raise RuntimeError(f"NLLSurv logits have no grad at batch {batch_idx}")
+                        y = _map_time_to_bins_with_edges(time, self.nll_bin_edges)
+                        c = (1 - status).long()
+                        loss = loss_fn(logits, y, c)
+                        if not loss.requires_grad:
+                            raise RuntimeError(f"NLLSurv loss has no grad at batch {batch_idx}")
+                    else:
+                        logits = logits.squeeze(-1)  # Cox / MSE / MAE: 1D risk
+                        
+                        # Check if logits has gradient - if not, there's a problem with model output
+                        if not logits.requires_grad:
+                            self.logger.error(f"CRITICAL: logits.requires_grad={logits.requires_grad} at batch {batch_idx}")
+                            self.logger.error(f"  Model training mode: {self.model.training}")
+                            self.logger.error(f"  torch.is_grad_enabled(): {torch.is_grad_enabled()}")
+                            self.logger.error(f"  output type: {type(output)}")
+                            # Check if any model parameters require grad
+                            params_require_grad = [p.requires_grad for p in self.model.parameters()]
+                            self.logger.error(f"  Model params requiring grad: {sum(params_require_grad)}/{len(params_require_grad)}")
+                            raise RuntimeError(f"Cannot establish gradient connection for logits at batch {batch_idx}. Model may be detached or in eval mode.")
+                        
+                        loss = loss_fn(logits, status, time)
+                        
+                        # Verify loss has gradient connection - if not, it's a bug in loss function
+                        if not loss.requires_grad:
+                            self.logger.error(f"CRITICAL: loss.requires_grad={loss.requires_grad} at batch {batch_idx}")
+                            self.logger.error(f"  logits.requires_grad={logits.requires_grad}, logits.shape={logits.shape}")
+                            self.logger.error(f"  status.sum()={status.sum().item()}, batch_size={len(status)}")
+                            raise RuntimeError(f"Loss function returned tensor without gradient connection at batch {batch_idx}")
                 
                 if fp16_scaler is not None:
                     fp16_scaler.scale(loss).backward()
@@ -404,10 +448,14 @@ class SurvivalTrainer(BaseTrainer):
                 else:
                     logits = output
                 
-                preds = logits.squeeze(-1).cpu().numpy()
-                
-                # Flatten to ensure 1D arrays for concatenation
-                all_preds.append(preds.flatten())
+                if self.survival_loss == 'nllsurv':
+                    la = logits.float().cpu().numpy()
+                    if la.ndim == 1:
+                        la = la.reshape(1, -1)
+                    all_preds.append(la)
+                else:
+                    preds = logits.squeeze(-1).cpu().numpy()
+                    all_preds.append(preds.flatten())
                 all_status.append(status.cpu().numpy().flatten())
                 all_time.append(time.cpu().numpy().flatten())
                 # Handle patient_ids - could be list or single string
@@ -416,12 +464,24 @@ class SurvivalTrainer(BaseTrainer):
                 else:
                     all_patient_ids.append(patient_ids)
         
-        all_preds = np.concatenate(all_preds)
+        if self.survival_loss == 'nllsurv':
+            all_preds = np.concatenate(all_preds, axis=0)
+        else:
+            all_preds = np.concatenate(all_preds)
         all_status = np.concatenate(all_status)
         all_time = np.concatenate(all_time)
         
         # Calculate C-index
-        risk_tensor = torch.tensor(all_preds, dtype=torch.float32)
+        if self.survival_loss == 'nllsurv':
+            logits_t = torch.from_numpy(all_preds).float()
+            hazards = torch.sigmoid(logits_t)
+            survival = torch.cumprod(1 - hazards, dim=1)
+            risk_tensor = -survival.sum(dim=1, keepdim=True)
+        else:
+            risk_tensor = torch.tensor(all_preds, dtype=torch.float32)
+            if risk_tensor.ndim == 1:
+                risk_tensor = risk_tensor.unsqueeze(1)
+        
         status_tensor = torch.tensor(all_status, dtype=torch.float32)
         time_tensor = torch.tensor(all_time, dtype=torch.float32)
         
@@ -450,12 +510,16 @@ class SurvivalTrainer(BaseTrainer):
         # Save results to CSV if test split
         if split == 'test':
             save_csv_path = os.path.join(self.save_dir, f"results_{self.model_type}.csv")
+            if self.survival_loss == 'nllsurv':
+                rs = risk_tensor.squeeze(1).numpy() if risk_tensor.dim() > 1 else risk_tensor.numpy().flatten()
+            else:
+                rs = all_preds.flatten()
             results_df = pd.DataFrame({
-                'sample_id': [f"sample_{i}" for i in range(len(all_preds))],
+                'sample_id': [f"sample_{i}" for i in range(len(rs))],
                 'patient_id': all_patient_ids,
                 'status': all_status.astype(int),
                 'time': all_time,
-                'risk_score': all_preds
+                'risk_score': rs
             })
             results_df.to_csv(save_csv_path, index=False)
             self.logger.info(f"Results saved to {save_csv_path}")
@@ -476,10 +540,12 @@ class SurvivalTrainer(BaseTrainer):
             "patience": self.config.get('patience', 10),
             "hidden_dim": self.config.get('hidden_dim', 256),
             "feature_dimension": self.config.get('feature_dimension'),
-            "max_seq_length": self.config.get('max_seq_length'),
-            "metric": self.dataset_info.get('metric', 'c_index'),
-            "survival_loss": self.survival_loss,
         }
+        actual_config.update(self.get_sequence_config_for_save())
+        actual_config["metric"] = self.dataset_info.get('metric', 'c_index')
+        actual_config["survival_loss"] = self.survival_loss
+        if self.survival_loss == 'nllsurv':
+            actual_config["nll_bins"] = self.nll_bins
         
         dataset_info_dict = {
             "task_type": self.dataset_info.get('task_type'),

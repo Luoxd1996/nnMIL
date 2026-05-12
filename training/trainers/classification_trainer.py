@@ -414,10 +414,10 @@ class ClassificationTrainer(BaseTrainer):
             "patience": self.config.get('patience', 10),
             "hidden_dim": self.config.get('hidden_dim', 256),
             "feature_dimension": self.config.get('feature_dimension'),
-            "max_seq_length": self.config.get('max_seq_length'),
-            "metric": self.dataset_info.get('metric', 'bacc'),
-            "num_classes": self.num_classes,
         }
+        actual_config.update(self.get_sequence_config_for_save())
+        actual_config["metric"] = self.dataset_info.get('metric', 'bacc')
+        actual_config["num_classes"] = self.num_classes
         
         # Prepare dataset info
         dataset_info_dict = {

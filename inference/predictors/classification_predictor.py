@@ -17,6 +17,7 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import cohen_kappa_score
 
 from nnMIL.inference.predictors.base_predictor import BasePredictor
+from nnMIL.network_architecture.model_factory import is_simple_mil_family, storage_model_type
 from nnMIL.data.dataset import random_length_collate_fn
 from nnMIL.utilities.utils import get_eval_metrics
 
@@ -78,11 +79,11 @@ class ClassificationPredictor(BasePredictor):
         )
         
         num_classes = test_dataset.num_classes
-        model_type = kwargs.get('model_type', 'simple_mil')
+        model_type = kwargs.get('model_type', 'nnmil')
         aggregate_patient_level = kwargs.get('aggregate_patient_level', True)
         save_csv_path = None
         if save_dir:
-            save_csv_path = os.path.join(save_dir, f"results_{model_type}.csv")
+            save_csv_path = os.path.join(save_dir, f"results_{storage_model_type(model_type)}.csv")
         
         # Initialize lists for collecting results
         preds_all = []
@@ -140,7 +141,7 @@ class ClassificationPredictor(BasePredictor):
                 label = label.to(device)
                 
                 # Handle different model types
-                if model_type == 'simple_mil':
+                if is_simple_mil_family(model_type):
                     stride_divisor = kwargs.get('stride_divisor', 4)
                     output = model(features, stride_divisor=stride_divisor)
                 else:
