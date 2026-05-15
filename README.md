@@ -34,6 +34,9 @@ Reference bundles:
 - Extracted patch-level embeddings (TCGA/EBRAINS using Virchow2 and UNI):
   - [TCGA/UNI](https://drive.google.com/drive/folders/1gjL3Uhumk35YSkbz1TOFMzUBumZfSBGZ?usp=sharing)
   - [TCGA/Virchow2](https://drive.google.com/drive/folders/1PVuRhnc_ObUn1aFRSiyk5_5vtWjoCeNv?usp=sharing)
+  - [TCGA/H0](https://drive.google.com/drive/folders/1At2rsCAd4Ofhd0Zvb-emD80ctpvrd1iB?usp=sharing)
+  - [TCGA/GigaPath](https://drive.google.com/drive/folders/17HQHOaty9kMdFY851tWx7GTGERYMAbNs?usp=sharing)
+  - [TCGA/CONCHV1.5](https://drive.google.com/drive/folders/1GGjTwatcm5OH8lniI0ihXBh1dzjoUyDN?usp=sharing)
   - [EBRAINS](https://drive.google.com/file/d/16tpUS-o21WsQH1U3Jyqi4784sb-OceiB/view?usp=sharing)
 
 ## Environment & Dependencies
