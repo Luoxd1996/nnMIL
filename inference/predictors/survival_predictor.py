@@ -16,6 +16,7 @@ from torch.utils.data import DataLoader
 
 from nnMIL.inference.predictors.base_predictor import BasePredictor
 from nnMIL.data.dataset import random_length_collate_fn
+from nnMIL.utilities.masking import valid_mask_from_bag_sizes
 from nnMIL.training.losses.survival_loss import survival_c_index
 from nnMIL.network_architecture.model_factory import storage_model_type
 
@@ -106,24 +107,16 @@ class SurvivalPredictor(BasePredictor):
                 status = status.to(device)
                 time = time.to(device)
                 
-                # Handle different model types
-                if stride_divisor is not None and hasattr(model, 'forward'):
-                    # SimpleMIL with stride_divisor parameter
-                    if 'stride_divisor' in model.forward.__code__.co_varnames:
-                        if 'is_cox' in model.forward.__code__.co_varnames:
-                            output = model(features, is_cox=True, stride_divisor=stride_divisor)
-                        else:
-                            output = model(features, stride_divisor=stride_divisor)
-                    elif 'is_cox' in model.forward.__code__.co_varnames:
-                        output = model(features, is_cox=True)
-                    else:
-                        output = model(features)
-                else:
-                    # Other models
-                    if hasattr(model, 'forward') and 'is_cox' in model.forward.__code__.co_varnames:
-                        output = model(features, is_cox=True)
-                    else:
-                        output = model(features)
+                # Pass a padding mask only to models that explicitly support it.
+                forward_vars = model.forward.__code__.co_varnames if hasattr(model, 'forward') else ()
+                forward_kwargs = {}
+                if 'valid_mask' in forward_vars:
+                    forward_kwargs['valid_mask'] = valid_mask_from_bag_sizes(features, bag_sizes)
+                if 'is_cox' in forward_vars:
+                    forward_kwargs['is_cox'] = True
+                if stride_divisor is not None and 'stride_divisor' in forward_vars:
+                    forward_kwargs['stride_divisor'] = stride_divisor
+                output = model(features, **forward_kwargs)
                 
                 if isinstance(output, dict):
                     logits = output['logits']

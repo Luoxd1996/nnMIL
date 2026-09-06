@@ -70,7 +70,7 @@ class SimpleMIL(nn.Module):
 
         return [perm[i:i+keep] for i in starts]
     
-    def _attend(self, x, idx=None):
+    def _attend(self, x, idx=None, valid_mask=None):
         # Attention first layer uses sub-channels (if idx is not None)
         if idx is None:
             a = torch.tanh(self.V(x))
@@ -80,10 +80,15 @@ class SimpleMIL(nn.Module):
             b = torch.sigmoid(self._first_linear_with_idx(self.U, x, idx))
         a = self.drop(a); b = self.drop(b)
         A_raw = self.w(a * b)  # [B,N,1]
+        if valid_mask is not None:
+            if valid_mask.shape != x.shape[:2]:
+                raise ValueError("valid_mask must have shape [B, N]")
+            A_raw = A_raw.masked_fill(~valid_mask.unsqueeze(-1), float('-inf'))
         A = self._activate(A_raw)   # [B,N,1] (softmax normalizes along instance dimension)
         return A
 
-    def forward(self, x, return_WSI_attn=False, return_WSI_feature=False, is_cox=False, no_feature_select=False, stride_divisor=4):
+    def forward(self, x, return_WSI_attn=False, return_WSI_feature=False, is_cox=False,
+                no_feature_select=False, stride_divisor=4, valid_mask=None):
         """
         Forward pass of SimpleMIL model.
         
@@ -101,6 +106,12 @@ class SimpleMIL(nn.Module):
         forward_return = {}
         B, N, D = x.shape
         assert D == self.D, f"expect D={self.D}, got {D}"
+        if valid_mask is not None:
+            valid_mask = valid_mask.to(device=x.device, dtype=torch.bool)
+            if valid_mask.shape != (B, N):
+                raise ValueError("valid_mask must have shape [B, N]")
+            if not valid_mask.any(dim=1).all():
+                raise ValueError("Each bag must contain at least one valid patch")
 
         # =============== Training ===============
         if self.training:
@@ -111,13 +122,15 @@ class SimpleMIL(nn.Module):
                 z = torch.tanh(self.V(x))              # [B,N,H]
                 z = self.drop(z)
                 A_raw = self.w(z)                      # [B,N,1]
+                if valid_mask is not None:
+                    A_raw = A_raw.masked_fill(~valid_mask.unsqueeze(-1), float('-inf'))
                 A = self._activate(A_raw)              # [B,N,1]
             else:
                 # Original SimpleMIL: subsampling + gated attention
                 keep = min(self.H, D)
                 idx = torch.randperm(D, device=x.device)[:keep]
                 self.last_train_idx = idx
-                A = self._attend(x, idx)               # [B,N,1]
+                A = self._attend(x, idx, valid_mask)   # [B,N,1]
 
             feat = torch.bmm(A.transpose(1, 2), x).squeeze(1)   # [B,D] pooling on original x
             logits = self.cls(feat)                             # [B,pred_num]
@@ -137,6 +150,8 @@ class SimpleMIL(nn.Module):
             z = torch.tanh(self.V(x))                  # [B,N,H]
             z = self.drop(z)
             A_raw = self.w(z)                          # [B,N,1]
+            if valid_mask is not None:
+                A_raw = A_raw.masked_fill(~valid_mask.unsqueeze(-1), float('-inf'))
             A = self._activate(A_raw)                  # [B,N,1]
 
             feat = torch.bmm(A.transpose(1, 2), x).squeeze(1)  # [B,D]
@@ -157,7 +172,7 @@ class SimpleMIL(nn.Module):
 
         logit_sum, feat_sum, attn_sum = [], [], []
         for idx in idx_chunks:
-            A_blk = self._attend(x, None if keep >= D else idx)         # [B,N,1]
+            A_blk = self._attend(x, None if keep >= D else idx, valid_mask)  # [B,N,1]
             feat_blk = torch.bmm(A_blk.transpose(1, 2), x).squeeze(1)   # [B,D]
             logits_blk = self.cls(feat_blk)                              # [B,pred_num]
             logit_sum.append(logits_blk)
