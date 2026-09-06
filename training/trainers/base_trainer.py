@@ -20,7 +20,8 @@ from torch.utils.data import DataLoader
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from nnMIL.utilities.plan_loader import load_plan, get_config_from_plan, get_dataset_info_from_plan, create_dataset_from_plan
-from nnMIL.network_architecture.model_factory import storage_model_type
+from nnMIL.network_architecture.model_factory import is_simple_mil_family, storage_model_type
+from nnMIL.utilities.masking import valid_mask_from_bag_sizes
 
 
 def set_random_seeds(seed=42):
@@ -208,6 +209,14 @@ class BaseTrainer(ABC):
         if use_orig:
             return {"use_original_length": True, "max_seq_length": None}
         return {"use_original_length": False, "max_seq_length": plan_max}
+
+    def forward_model(self, features: torch.Tensor, bag_sizes: Optional[torch.Tensor] = None, **kwargs):
+        """Forward a model while masking padding for the SimpleMIL/nnMIL family."""
+        if is_simple_mil_family(self._model_type_arg):
+            if bag_sizes is not None:
+                kwargs["valid_mask"] = valid_mask_from_bag_sizes(features, bag_sizes)
+            return self.model(features, **kwargs)
+        return self.model(features, **kwargs)
     
     @abstractmethod
     def create_model(self):

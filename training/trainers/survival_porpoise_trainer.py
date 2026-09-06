@@ -210,9 +210,9 @@ class SurvivalPorpoiseTrainer(BaseTrainer):
                 
                 with torch.amp.autocast(device_type, dtype=torch.bfloat16):
                     if hasattr(self.model, 'forward') and 'is_cox' in self.model.forward.__code__.co_varnames:
-                        output = self.model(features, is_cox=True)
+                        output = self.forward_model(features, bag_sizes, is_cox=True)
                     else:
-                        output = self.model(features)
+                        output = self.forward_model(features, bag_sizes)
                     
                     if isinstance(output, dict):
                         logits = output['logits']
@@ -325,9 +325,9 @@ class SurvivalPorpoiseTrainer(BaseTrainer):
                     time = time.unsqueeze(0)
                 
                 if hasattr(self.model, 'forward') and 'is_cox' in self.model.forward.__code__.co_varnames:
-                    output = self.model(features, is_cox=True)
+                    output = self.forward_model(features, bag_sizes, is_cox=True)
                 else:
-                    output = self.model(features)
+                    output = self.forward_model(features, bag_sizes)
                 
                 if isinstance(output, dict):
                     logits = output['logits']

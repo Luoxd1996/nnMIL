@@ -292,9 +292,9 @@ class SurvivalTrainer(BaseTrainer):
                     
                     # For survival models, pass is_cox=True if supported
                     if hasattr(self.model, 'forward') and 'is_cox' in self.model.forward.__code__.co_varnames:
-                        output = self.model(features, is_cox=True)
+                        output = self.forward_model(features, bag_sizes, is_cox=True)
                     else:
-                        output = self.model(features)
+                        output = self.forward_model(features, bag_sizes)
                     
                     if isinstance(output, dict):
                         logits = output['logits']
@@ -439,9 +439,9 @@ class SurvivalTrainer(BaseTrainer):
                 features = features.to(self.device)
                 
                 if hasattr(self.model, 'forward') and 'is_cox' in self.model.forward.__code__.co_varnames:
-                    output = self.model(features, is_cox=True)
+                    output = self.forward_model(features, bag_sizes, is_cox=True)
                 else:
-                    output = self.model(features)
+                    output = self.forward_model(features, bag_sizes)
                 
                 if isinstance(output, dict):
                     logits = output['logits']

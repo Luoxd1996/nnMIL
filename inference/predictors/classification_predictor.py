@@ -19,6 +19,7 @@ from sklearn.metrics import cohen_kappa_score
 from nnMIL.inference.predictors.base_predictor import BasePredictor
 from nnMIL.network_architecture.model_factory import is_simple_mil_family, storage_model_type
 from nnMIL.data.dataset import random_length_collate_fn
+from nnMIL.utilities.masking import valid_mask_from_bag_sizes
 from nnMIL.utilities.utils import get_eval_metrics
 
 
@@ -143,7 +144,8 @@ class ClassificationPredictor(BasePredictor):
                 # Handle different model types
                 if is_simple_mil_family(model_type):
                     stride_divisor = kwargs.get('stride_divisor', 4)
-                    output = model(features, stride_divisor=stride_divisor)
+                    valid_mask = valid_mask_from_bag_sizes(features, bag_sizes)
+                    output = model(features, valid_mask=valid_mask, stride_divisor=stride_divisor)
                 else:
                     output = model(features)
                 

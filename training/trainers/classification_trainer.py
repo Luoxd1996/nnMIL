@@ -223,7 +223,7 @@ class ClassificationTrainer(BaseTrainer):
                 optimizer.zero_grad()
                 
                 with torch.amp.autocast(device_type, dtype=torch.bfloat16):
-                    output = self.model(features)
+                    output = self.forward_model(features, bag_sizes)
                     
                     if isinstance(output, dict):
                         logits = output['logits']
@@ -326,7 +326,7 @@ class ClassificationTrainer(BaseTrainer):
                 coords = coords.to(self.device)
                 bag_sizes = bag_sizes.to(self.device)
                 
-                output = self.model(features)
+                output = self.forward_model(features, bag_sizes)
                 
                 if isinstance(output, dict):
                     logits = output['logits']
